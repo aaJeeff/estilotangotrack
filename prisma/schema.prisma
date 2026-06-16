@@ -1,0 +1,340 @@
+// Camisetas Tracker — Prisma schema
+// Identity is owned by Supabase Auth; the `User` row mirrors `auth.users` by id.
+// Authorization lives in the application layer; Postgres RLS is a secondary guard.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL") // pooled connection (pgbouncer)
+  directUrl = env("DIRECT_URL") // direct connection for migrations
+}
+
+// ---------------------------------------------------------------------------
+// Enums
+// ---------------------------------------------------------------------------
+
+enum UserRole {
+  ADMIN
+  CLIENT
+}
+
+enum OrderStatus {
+  CONFIRMED
+  DISPATCHED_CHINA
+  ARRIVED_ARGENTINA
+  CUSTOMS_PROCESSING
+  DECLARED
+  EN_ROUTE_ROSARIO
+  RECEIVED_BY_US
+  DELIVERED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  DEPOSIT_RECEIVED
+  PENDING_BALANCE
+  FULLY_PAID
+}
+
+enum PaymentType {
+  DEPOSIT
+  BALANCE
+  ADJUSTMENT
+}
+
+enum PaymentMethod {
+  CASH
+  TRANSFER
+  MERCADO_PAGO
+  OTHER
+}
+
+enum SyncZone {
+  CHINA
+  ARGENTINA
+  NEAR_DELIVERY
+}
+
+enum NotificationChannel {
+  EMAIL
+  WHATSAPP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+enum StatusSource {
+  AUTO_TRANSLATED
+  MANUAL
+}
+
+// ---------------------------------------------------------------------------
+// Identity
+// ---------------------------------------------------------------------------
+
+model User {
+  id          String    @id // == Supabase auth.users.id (UUID)
+  email       String    @unique
+  role        UserRole  @default(CLIENT)
+  isActive    Boolean   @default(true)
+  lastLoginAt DateTime?
+
+  client    Client?
+  auditLogs AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// Business entities
+// ---------------------------------------------------------------------------
+
+model Client {
+  id           String    @id @default(cuid())
+  userId       String?   @unique // null until the invitation is accepted
+  user         User?     @relation(fields: [userId], references: [id])
+  fullName     String
+  email        String    @unique
+  instagram    String?
+  whatsapp     String?
+  isActive     Boolean   @default(true)
+  lastAccessAt DateTime?
+
+  orders Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Order {
+  id          String  @id @default(cuid())
+  orderNumber Int     @unique // human-readable sequence, e.g. #0042
+  clientId    String
+  client      Client  @relation(fields: [clientId], references: [id])
+  branchId    String?
+  branch      Branch? @relation(fields: [branchId], references: [id])
+
+  destinationId String?
+  destination   Destination? @relation(fields: [destinationId], references: [id])
+
+  currentStatus OrderStatus @default(CONFIRMED)
+  internalNotes String?
+
+  estimatedDeliveryFrom DateTime?
+  estimatedDeliveryTo   DateTime?
+  actualDeliveryDate    DateTime?
+
+  // Payment snapshot (detailed movements live in Payment[])
+  totalAmount   Decimal       @default(0) @db.Decimal(12, 2)
+  depositAmount Decimal       @default(0) @db.Decimal(12, 2)
+  balanceAmount Decimal       @default(0) @db.Decimal(12, 2)
+  paymentStatus PaymentStatus @default(DEPOSIT_RECEIVED)
+
+  confirmedAt DateTime  @default(now())
+  archivedAt  DateTime?
+  cancelledAt DateTime?
+
+  items         OrderItem[]
+  payments      Payment[]
+  shipment      Shipment?
+  statusHistory OrderStatusHistory[]
+  notifications Notification[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([currentStatus])
+}
+
+model OrderItem {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productName String
+  size        String
+  version     String?
+  printName   String?
+  printNumber String?
+  patches     String?
+  unitPrice   Decimal @default(0) @db.Decimal(12, 2)
+  quantity    Int     @default(1)
+
+  // Internal reference only — owners have NO access to the system.
+  ownerName    String?
+  ownerContact String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+}
+
+// ---------------------------------------------------------------------------
+// Tracking
+// ---------------------------------------------------------------------------
+
+model Shipment {
+  id      String @id @default(cuid())
+  orderId String @unique
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  trackingNumber         String   @unique
+  carrier                String?
+  provider               String   @default("17TRACK")
+  registeredWithProvider Boolean  @default(false)
+  syncZone               SyncZone @default(CHINA)
+
+  lastSyncedAt   DateTime?
+  nextSyncAt     DateTime?
+  rawLastPayload Json?
+
+  events TrackingEvent[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([nextSyncAt])
+}
+
+// Raw, permanent event from the tracking provider (never shown verbatim to clients).
+model TrackingEvent {
+  id         String   @id @default(cuid())
+  shipmentId String
+  shipment   Shipment @relation(fields: [shipmentId], references: [id], onDelete: Cascade)
+
+  occurredAt     DateTime
+  rawDescription String
+  rawStatusCode  String?
+  location       String?
+  countryCode    String?
+  provider       String   @default("17TRACK")
+  payload        Json
+  dedupeHash     String // idempotency guard
+
+  createdAt DateTime @default(now())
+
+  @@unique([shipmentId, dedupeHash])
+  @@index([shipmentId, occurredAt])
+}
+
+// Translated business status — this is what the client sees.
+model OrderStatusHistory {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  status           OrderStatus
+  enteredAt        DateTime     @default(now())
+  source           StatusSource
+  triggeredByEventId String?
+  changedByUserId  String?
+
+  @@index([orderId, enteredAt])
+}
+
+// ---------------------------------------------------------------------------
+// Payments (no online gateway yet; detailed ledger for the future)
+// ---------------------------------------------------------------------------
+
+model Payment {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  type             PaymentType
+  amount           Decimal       @db.Decimal(12, 2)
+  method           PaymentMethod @default(CASH)
+  paidAt           DateTime      @default(now())
+  recordedByUserId String
+  notes            String?
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+}
+
+// ---------------------------------------------------------------------------
+// Notifications
+// ---------------------------------------------------------------------------
+
+model Notification {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  channel       NotificationChannel @default(EMAIL)
+  templateKey   String
+  triggerStatus OrderStatus?
+  status        NotificationStatus  @default(PENDING)
+  sentAt        DateTime?
+  error         String?
+  dedupeKey     String              @unique // one notification per event, ever
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId])
+}
+
+// ---------------------------------------------------------------------------
+// Audit
+// ---------------------------------------------------------------------------
+
+model AuditLog {
+  id         String  @id @default(cuid())
+  userId     String
+  user       User    @relation(fields: [userId], references: [id])
+  action     String
+  entityType String
+  entityId   String
+  before     Json?
+  after      Json?
+  ipAddress  String?
+
+  createdAt DateTime @default(now())
+
+  @@index([entityType, entityId])
+  @@index([userId])
+}
+
+// ---------------------------------------------------------------------------
+// Future-proofing: multi-branch / multi-destination / runtime config
+// ---------------------------------------------------------------------------
+
+model Branch {
+  id       String  @id @default(cuid())
+  name     String
+  city     String
+  isActive Boolean @default(true)
+
+  orders Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Destination {
+  id       String  @id @default(cuid())
+  city     String
+  province String?
+  isActive Boolean @default(true)
+
+  orders Order[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AppConfig {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}

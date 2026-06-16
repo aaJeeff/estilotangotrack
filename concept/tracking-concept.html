@@ -1,0 +1,2693 @@
+﻿<!doctype html>
+<html lang="es">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <title>Seguimiento · Globo 3D conceptual</title>
+    <style>
+      :root {
+        --ink: #f8fafc;
+        --ink-soft: rgba(248, 250, 252, 0.72);
+        --glass-text: rgba(255, 255, 255, 0.96);
+        --glass-muted: rgba(235, 246, 255, 0.62);
+        --location: #0a84ff;
+        --safe-bottom: env(safe-area-inset-bottom, 0px);
+      }
+
+      * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+      html, body { margin: 0; min-height: 100%; background: #020711; }
+      body {
+        height: 100dvh;
+        overflow: hidden;
+        color: var(--ink);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text",
+          "Segoe UI", system-ui, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        background:
+          radial-gradient(900px 520px at 52% 8%, rgba(83, 162, 232, 0.42), transparent 60%),
+          radial-gradient(780px 520px at 50% 60%, rgba(18, 86, 142, 0.42), transparent 68%),
+          linear-gradient(180deg, #0e2f55 0%, #061a33 52%, #020813 100%);
+        display: grid;
+        place-items: center;
+      }
+
+      .stage {
+        position: relative;
+        width: min(100vw, 1180px);
+        height: min(100dvh, 920px);
+        overflow: hidden;
+        background:
+          radial-gradient(720px 440px at 54% 18%, rgba(85, 169, 244, 0.34), transparent 60%),
+          radial-gradient(760px 520px at 50% 78%, rgba(16, 91, 152, 0.28), transparent 64%),
+          linear-gradient(180deg, #0d2f55 0%, #061a33 58%, #020813 100%);
+        isolation: isolate;
+      }
+      @media (min-width: 760px) {
+        .stage {
+          width: min(96vw, 1080px);
+          height: min(92dvh, 900px);
+          border-radius: 44px;
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          box-shadow: 0 48px 150px rgba(0, 0, 0, 0.74), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+        }
+      }
+
+      .map-shell {
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 70%;
+        min-height: 500px;
+        overflow: hidden;
+        background:
+          radial-gradient(520px 220px at 58% 18%, rgba(121, 196, 255, 0.24), transparent 68%),
+          radial-gradient(420px 180px at 80% 30%, rgba(95, 170, 255, 0.12), transparent 72%),
+          linear-gradient(180deg, #0d3159 0%, #071b34 48%, #020a18 100%);
+        cursor: grab;
+        touch-action: none;
+      }
+      .map-shell::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 1;
+        pointer-events: none;
+        opacity: .34;
+        background:
+          radial-gradient(ellipse at 16% 86%, rgba(255,255,255,.42) 0 7%, transparent 24%),
+          radial-gradient(ellipse at 55% 88%, rgba(255,255,255,.24) 0 9%, transparent 28%),
+          radial-gradient(ellipse at 84% 82%, rgba(255,255,255,.28) 0 8%, transparent 25%);
+        filter: blur(18px);
+        mix-blend-mode: screen;
+      }
+      .map-shell:active { cursor: grabbing; }
+      .map-shell::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        pointer-events: none;
+        z-index: 2;
+        background:
+          linear-gradient(180deg, rgba(77, 153, 228, .08) 0%, transparent 46%, rgba(0, 0, 0, .20) 100%),
+          radial-gradient(circle at 50% 44%, transparent 0 48%, rgba(32,113,180,.08) 70%, rgba(0, 0, 0, .35) 100%);
+      }
+
+      #globeCanvas {
+        position: absolute;
+        inset: 0;
+        width: 100%;
+        height: 100%;
+        display: block;
+        z-index: 0;
+      }
+
+      .route-overlay {
+        position: absolute;
+        inset: 0;
+        z-index: 7;
+        width: 100%;
+        height: 100%;
+        display: none;
+        pointer-events: none;
+        overflow: visible;
+      }
+      .route-overlay line {
+        vector-effect: non-scaling-stroke;
+        stroke-linecap: round;
+      }
+      .route-base {
+        stroke: rgba(8, 17, 26, 0.34);
+        stroke-width: 7;
+        filter: drop-shadow(0 6px 14px rgba(0, 0, 0, 0.26));
+      }
+      .route-progress {
+        stroke: rgba(255, 255, 255, 0.88);
+        stroke-width: 4;
+        filter: drop-shadow(0 0 12px rgba(137, 219, 255, 0.62));
+      }
+      .route-shimmer {
+        stroke: rgba(137, 220, 255, 0.86);
+        stroke-width: 3;
+        stroke-dasharray: 18 76;
+        animation: routeFlow 2.8s linear infinite;
+        filter: drop-shadow(0 0 16px rgba(98, 191, 255, 0.78));
+      }
+      .route-pulse-dot {
+        fill: rgba(255, 255, 255, 0.96);
+        filter: drop-shadow(0 0 14px rgba(120, 216, 255, 0.9));
+      }
+
+      .desktop-route-card,
+      .desktop-route-panel {
+        display: none;
+      }
+
+      .top-bar {
+        position: absolute;
+        z-index: 10;
+        top: max(14px, env(safe-area-inset-top, 0px));
+        left: clamp(14px, 4vw, 32px);
+        right: clamp(14px, 4vw, 32px);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        gap: 12px;
+        pointer-events: none;
+      }
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        height: 38px;
+        padding: 0 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.24);
+        color: rgba(255, 255, 255, 0.9);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
+        backdrop-filter: blur(24px) saturate(170%);
+        -webkit-backdrop-filter: blur(24px) saturate(170%);
+        box-shadow: 0 12px 36px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+        font-size: 13px;
+        font-weight: 650;
+        letter-spacing: 0.01em;
+        white-space: nowrap;
+      }
+      .pill.secondary { color: rgba(255, 255, 255, 0.72); }
+      .pill.secondary {
+        position: absolute;
+        right: 0;
+      }
+      .pill .spark {
+        width: 7px;
+        height: 7px;
+        border-radius: 50%;
+        background: #fff;
+        box-shadow: 0 0 14px rgba(255, 255, 255, 0.95);
+      }
+
+      .desktop-flag {
+        width: 74px;
+        height: 46px;
+        border-radius: 12px;
+        position: relative;
+        overflow: hidden;
+        flex: 0 0 auto;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        box-shadow: 0 14px 34px rgba(0, 0, 0, 0.24), inset 0 1px 0 rgba(255, 255, 255, 0.24);
+      }
+      .desktop-flag.china {
+        background: #de2910;
+      }
+      .desktop-flag.china::before {
+        content: "★";
+        position: absolute;
+        left: 11px;
+        top: 5px;
+        color: #ffde00;
+        font-size: 20px;
+        line-height: 1;
+      }
+      .desktop-flag.china::after {
+        content: "✦ ✦\A ✦ ✦";
+        white-space: pre;
+        position: absolute;
+        left: 34px;
+        top: 5px;
+        color: #ffde00;
+        font-size: 8px;
+        line-height: 1.4;
+      }
+      .desktop-flag.argentina {
+        background: linear-gradient(#74acdf 0 33%, #fff 33% 66%, #74acdf 66%);
+      }
+      .desktop-flag.argentina::before {
+        content: "";
+        position: absolute;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        left: 50%;
+        top: 50%;
+        background: #f6b40e;
+        transform: translate(-50%, -50%);
+        box-shadow: 0 0 0 2px rgba(246, 180, 14, 0.20);
+      }
+
+      .map-label {
+        position: absolute;
+        z-index: 9;
+        transform: translate(-50%, -100%);
+        padding: 11px 14px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        background: rgba(255, 255, 255, 0.18);
+        backdrop-filter: blur(22px) saturate(175%);
+        -webkit-backdrop-filter: blur(22px) saturate(175%);
+        color: rgba(255, 255, 255, 0.96);
+        font-size: 16px;
+        font-weight: 820;
+        line-height: 1;
+        white-space: nowrap;
+        pointer-events: none;
+        text-shadow: 0 1px 12px rgba(0, 34, 62, 0.34);
+        box-shadow: 0 14px 36px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.42);
+        opacity: 0;
+        transition: opacity 0.25s ease, transform 0.25s ease;
+      }
+      .map-label.visible { opacity: 1; transform: translate(-50%, -112%); }
+      .map-label.edge {
+        opacity: 0.70;
+        transform: translate(-50%, -112%) scale(0.94);
+        filter: saturate(0.86);
+      }
+      .map-label small { color: rgba(255, 255, 255, 0.58); font-weight: 650; margin-left: 4px; }
+
+      .debug-label {
+        position: absolute;
+        z-index: 12;
+        transform: translate(-50%, -130%);
+        padding: 6px 9px;
+        border-radius: 999px;
+        border: 1px solid rgba(255, 255, 255, 0.45);
+        background: rgba(10, 18, 30, 0.55);
+        backdrop-filter: blur(16px) saturate(160%);
+        -webkit-backdrop-filter: blur(16px) saturate(160%);
+        color: #fff;
+        font-size: 11px;
+        font-weight: 780;
+        line-height: 1;
+        white-space: nowrap;
+        pointer-events: none;
+        text-shadow: 0 1px 6px rgba(0, 0, 0, 0.45);
+        box-shadow: 0 10px 28px rgba(0, 0, 0, 0.26);
+      }
+      .debug-label.hidden { opacity: 0; }
+      .debug-hud {
+        position: absolute;
+        z-index: 14;
+        left: 14px;
+        bottom: calc(34% + 14px);
+        max-width: min(360px, calc(100% - 28px));
+        padding: 10px 12px;
+        border-radius: 16px;
+        border: 1px solid rgba(255, 255, 255, 0.34);
+        background: rgba(4, 13, 25, 0.52);
+        backdrop-filter: blur(18px) saturate(170%);
+        -webkit-backdrop-filter: blur(18px) saturate(170%);
+        color: rgba(255, 255, 255, 0.92);
+        font-size: 11px;
+        font-weight: 650;
+        line-height: 1.45;
+        overflow-wrap: anywhere;
+        pointer-events: none;
+        box-shadow: 0 16px 42px rgba(0, 0, 0, 0.28);
+      }
+
+      .location-dot {
+        position: absolute;
+        z-index: 11;
+        width: 13px;
+        height: 13px;
+        border-radius: 50%;
+        background: var(--location);
+        border: 2px solid #fff;
+        box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.25), 0 0 22px rgba(10, 132, 255, 0.86);
+        transform: translate(-50%, -50%);
+        pointer-events: none;
+      }
+      .location-dot::before {
+        content: "";
+        position: absolute;
+        inset: 50% auto auto 50%;
+        width: 58px;
+        height: 58px;
+        border-radius: 50%;
+        background: rgba(10, 132, 255, 0.22);
+        transform: translate(-50%, -50%);
+        animation: locationHaloPulse 2.8s ease-in-out infinite;
+      }
+      .location-dot.hidden,
+      .map-label.hidden { opacity: 0; }
+
+      .sheet {
+        position: absolute;
+        z-index: 20;
+        left: 0;
+        right: 0;
+        top: 0;
+        height: 100%;
+        transform: translateY(66%);
+        border-radius: 32px 32px 0 0;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.09) 46%, rgba(255, 255, 255, 0.06)),
+          radial-gradient(480px 220px at 34% 0%, rgba(255, 255, 255, 0.18), transparent 62%);
+        border: 1px solid rgba(255, 255, 255, 0.28);
+        border-bottom: 0;
+        box-shadow: 0 -28px 100px rgba(0, 0, 0, 0.48), inset 0 1px 0 rgba(255, 255, 255, 0.38);
+        backdrop-filter: blur(42px) saturate(210%);
+        -webkit-backdrop-filter: blur(42px) saturate(210%);
+        color: var(--glass-text);
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.96s cubic-bezier(0.19, 1, 0.22, 1);
+        will-change: transform;
+      }
+      .sheet.expanded { transform: translateY(34%); }
+      .sheet::before {
+        content: "";
+        position: absolute;
+        inset: 0 0 auto 0;
+        height: 120px;
+        border-radius: inherit;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.20), transparent);
+        pointer-events: none;
+      }
+      .grabber-area {
+        position: relative;
+        z-index: 2;
+        padding: 13px 0 4px;
+        cursor: grab;
+        touch-action: none;
+      }
+      .grabber-area:active { cursor: grabbing; }
+      .grabber {
+        width: 43px;
+        height: 5px;
+        margin: 0 auto;
+        border-radius: 999px;
+        background: rgba(235, 246, 255, 0.34);
+      }
+      .content {
+        position: relative;
+        z-index: 1;
+        flex: 1;
+        min-height: 0;
+        overflow-y: auto;
+        overscroll-behavior: contain;
+        padding: 7px clamp(18px, 5vw, 34px) calc(34px + var(--safe-bottom));
+        -webkit-overflow-scrolling: touch;
+        scrollbar-width: none;
+      }
+      .content::-webkit-scrollbar { display: none; }
+      .sheet:not(.expanded) .content { overflow: hidden; }
+      .sheet.expanded .content {
+        padding-top: 3px;
+        padding-bottom: calc(18px + var(--safe-bottom));
+      }
+
+      @media (max-width: 899px) {
+        .sheet.expanded {
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.075) 38%, rgba(255, 255, 255, 0.050)),
+            radial-gradient(520px 220px at 34% 0%, rgba(255, 255, 255, 0.14), transparent 64%),
+            linear-gradient(180deg, rgba(7, 23, 43, 0.26), rgba(3, 12, 24, 0.34));
+          box-shadow: 0 -30px 110px rgba(0, 0, 0, 0.54), inset 0 1px 0 rgba(255, 255, 255, 0.34);
+          backdrop-filter: blur(48px) saturate(190%) brightness(0.88);
+          -webkit-backdrop-filter: blur(48px) saturate(190%) brightness(0.88);
+        }
+        .sheet.expanded .content {
+          box-sizing: border-box;
+          flex: 0 1 auto;
+          max-height: calc(66dvh - 44px);
+          overflow-y: auto;
+          overscroll-behavior: contain;
+        }
+        .sheet.expanded::before {
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), transparent);
+        }
+      }
+
+      .eyebrow {
+        color: rgba(238, 247, 255, 0.76);
+        font-size: 13px;
+        font-weight: 760;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .state-badge {
+        display: inline-flex;
+        align-items: center;
+        height: 28px;
+        padding: 0 11px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.16);
+        border: 1px solid rgba(255, 255, 255, 0.24);
+        color: rgba(255, 255, 255, 0.86);
+        font-size: 12px;
+        font-weight: 780;
+        letter-spacing: 0;
+        text-transform: none;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.62);
+      }
+      .title-row {
+        display: none;
+        align-items: flex-start;
+        justify-content: space-between;
+        gap: 16px;
+        margin-top: 5px;
+      }
+      h1 {
+        margin: 0;
+        font-size: clamp(29px, 7vw, 42px);
+        letter-spacing: -0.055em;
+        line-height: 0.98;
+        color: #fff;
+      }
+      .order-no {
+        color: rgba(235, 246, 255, 0.62);
+        font-weight: 760;
+        font-size: 14px;
+        padding-top: 6px;
+      }
+      .status {
+        margin-top: 15px;
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: rgba(255, 255, 255, 0.96);
+        font-size: 17px;
+        font-weight: 780;
+        letter-spacing: -0.01em;
+      }
+      .status .pulse {
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: #0a84ff;
+        box-shadow: 0 0 0 5px rgba(10, 132, 255, 0.12), 0 0 18px rgba(10, 132, 255, 0.46);
+        animation: softPulse 2.4s ease-in-out infinite;
+      }
+
+      .progress-wrap { margin-top: 18px; }
+      .progress-head {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 16px;
+        margin-bottom: 10px;
+      }
+      .pct {
+        font-size: 42px;
+        font-weight: 860;
+        letter-spacing: -0.06em;
+        line-height: 0.9;
+      }
+      .pct span {
+        font-size: 18px;
+        color: rgba(235, 246, 255, 0.62);
+        letter-spacing: -0.02em;
+        margin-left: 2px;
+      }
+      .progress-head:has(.pct:only-child) {
+        margin-bottom: 9px;
+      }
+      .legend {
+        color: rgba(235, 246, 255, 0.72);
+        font-size: 13px;
+        font-weight: 680;
+        text-align: right;
+      }
+      .track {
+        height: 16px;
+        border-radius: 999px;
+        overflow: hidden;
+        background: rgba(255, 255, 255, 0.12);
+        box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.34), 0 1px 0 rgba(255, 255, 255, 0.18);
+      }
+      .fill {
+        height: 100%;
+        width: 0;
+        border-radius: inherit;
+        background: linear-gradient(90deg, #2488ff, #8fd9ff 58%, #ffffff);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.92), 0 0 22px rgba(65, 166, 255, 0.52);
+        position: relative;
+        overflow: hidden;
+        transition: width 1.7s cubic-bezier(0.22, 1, 0.36, 1);
+      }
+      .fill::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        bottom: 0;
+        left: 0;
+        width: min(90px, 68%);
+        background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.62), transparent);
+        opacity: 0;
+        transform: translateX(-120%);
+        animation: shimmer 6.8s cubic-bezier(0.33, 1, 0.68, 1) infinite;
+      }
+      .hint {
+        margin-top: 14px;
+        text-align: center;
+        color: rgba(235, 246, 255, 0.52);
+        font-size: 12.5px;
+        font-weight: 650;
+      }
+      .sheet.expanded .hint { display: none; }
+
+      .section { margin-top: 27px; }
+      .sheet.expanded .section { margin-top: 18px; }
+      .sheet.expanded .section:first-of-type { margin-top: 17px; }
+      .sheet:not(.expanded) .section { opacity: 1; }
+      .sheet.expanded .section {
+        opacity: 1;
+        transition: opacity 0.28s ease 0.08s;
+      }
+      .section > .label-title {
+        color: var(--glass-muted);
+        font-size: 12px;
+        font-weight: 820;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        margin-bottom: 12px;
+      }
+      .sheet.expanded .section > .label-title { margin-bottom: 8px; }
+      .card {
+        border-radius: 22px;
+        padding: 16px;
+        color: rgba(255, 255, 255, 0.96);
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.05));
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20), 0 18px 48px rgba(0, 0, 0, 0.22);
+        backdrop-filter: blur(24px) saturate(180%);
+        -webkit-backdrop-filter: blur(24px) saturate(180%);
+      }
+      .sheet.expanded .card {
+        border-radius: 18px;
+        padding: 12px 13px;
+      }
+      .eta { display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+      .eta .big { font-size: 18px; font-weight: 820; letter-spacing: -0.02em; }
+      .sub { color: var(--glass-muted); font-size: 13px; font-weight: 610; margin-top: 3px; }
+      .eta .num { font-size: 28px; font-weight: 880; letter-spacing: -0.06em; text-align: right; }
+      .timeline { position: relative; padding-left: 28px; }
+      .timeline::before {
+        content: "";
+        position: absolute;
+        left: 7px;
+        top: 7px;
+        bottom: 7px;
+        width: 2px;
+        border-radius: 99px;
+        background: linear-gradient(#63d884 0 34%, #0a84ff 34% 54%, rgba(17, 19, 23, 0.14) 54%);
+      }
+      .step { position: relative; padding-bottom: 21px; }
+      .sheet.expanded .step { padding-bottom: 14px; }
+      .step:last-child { padding-bottom: 0; }
+      .node {
+        position: absolute;
+        left: -28px;
+        top: 1px;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: rgba(17, 19, 23, 0.14);
+        border: 2px solid rgba(17, 19, 23, 0.16);
+      }
+      .done .node { background: #57d878; border-color: #57d878; box-shadow: 0 0 0 4px rgba(87, 216, 120, 0.18); }
+      .done .node::after {
+        content: "";
+        position: absolute;
+        left: 4px;
+        top: 2px;
+        width: 4px;
+        height: 8px;
+        border: solid #fff;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+      }
+      .current .node { background: #0a84ff; border-color: #fff; box-shadow: 0 0 0 5px rgba(10, 132, 255, 0.20), 0 0 18px rgba(10, 132, 255, 0.42); }
+      .step-head {
+        display: grid;
+        gap: 8px;
+      }
+      .inline-help {
+        width: fit-content;
+        max-width: 100%;
+      }
+      .inline-help summary {
+        list-style: none;
+        width: fit-content;
+        cursor: pointer;
+        border-radius: 999px;
+        padding: 5px 10px;
+        color: rgba(235, 246, 255, 0.82);
+        background: rgba(255, 255, 255, 0.10);
+        border: 1px solid rgba(255, 255, 255, 0.14);
+        font-size: 11.5px;
+        font-weight: 760;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.16);
+      }
+      .inline-help summary::-webkit-details-marker { display: none; }
+      .inline-help p {
+        width: min(275px, 100%);
+        margin: 8px 0 0;
+        color: rgba(235, 246, 255, 0.70);
+        font-size: 12.5px;
+        font-weight: 570;
+        line-height: 1.45;
+      }
+      .name { font-size: 15px; font-weight: 760; }
+      .sheet.expanded .name { font-size: 14px; }
+      .pending .name { color: rgba(235, 246, 255, 0.50); }
+      .when { color: rgba(235, 246, 255, 0.58); font-size: 12.5px; margin-top: 3px; font-weight: 620; }
+      .sheet.expanded .when { font-size: 11.5px; margin-top: 2px; }
+      .delivery-card {
+        margin-top: 16px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        border-radius: 20px;
+        padding: 14px 15px;
+        background: rgba(255, 255, 255, 0.11);
+        border: 1px solid rgba(255, 255, 255, 0.18);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.20), 0 14px 36px rgba(0, 0, 0, 0.18);
+      }
+      .sheet.expanded .delivery-card {
+        margin-top: 11px;
+        padding: 10px 12px;
+        border-radius: 16px;
+      }
+      .section > .delivery-card,
+      .sheet.expanded .section > .delivery-card {
+        margin-top: 0;
+      }
+      .delivery-icon {
+        width: 38px;
+        height: 38px;
+        border-radius: 13px;
+        display: grid;
+        place-items: center;
+        background: rgba(255, 255, 255, 0.28);
+        border: 1px solid rgba(255, 255, 255, 0.34);
+        font-size: 18px;
+      }
+      .sheet.expanded .delivery-icon {
+        width: 32px;
+        height: 32px;
+        border-radius: 11px;
+      }
+      .delivery-copy { flex: 1; }
+      .delivery-title { color: rgba(235, 246, 255, 0.66); font-size: 12.5px; font-weight: 760; }
+      .delivery-date { margin-top: 2px; color: #fff; font-size: 18px; font-weight: 830; letter-spacing: -0.03em; }
+      .sheet.expanded .delivery-date { font-size: 16px; }
+      .delivery-arrow { color: rgba(255, 255, 255, 0.72); font-size: 24px; line-height: 1; }
+      .collapse-section {
+        display: block;
+        overflow: clip;
+      }
+      .collapse-summary {
+        list-style: none;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        color: var(--glass-muted);
+        font-size: 12px;
+        font-weight: 820;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        cursor: pointer;
+        margin-bottom: 0;
+      }
+      .collapse-summary::-webkit-details-marker { display: none; }
+      .collapse-summary::after {
+        content: "⌄";
+        color: rgba(235, 246, 255, 0.58);
+        font-size: 16px;
+        line-height: 1;
+        transition: transform 0.22s ease;
+      }
+      .collapse-summary span:last-child {
+        margin-left: auto;
+        color: rgba(235, 246, 255, 0.52);
+        font-size: 11px;
+        font-weight: 760;
+        letter-spacing: 0;
+        text-transform: none;
+      }
+      .collapse-section[open] .collapse-summary {
+        margin-bottom: 10px;
+      }
+      .collapse-section[open] .collapse-summary::after {
+        transform: rotate(180deg);
+      }
+      .collapse-section .card,
+      .inline-help p {
+        transform-origin: top;
+      }
+      .product { display: flex; align-items: center; gap: 13px; }
+      .product + .product { margin-top: 13px; padding-top: 13px; border-top: 1px solid rgba(17, 19, 23, 0.08); }
+      .jersey {
+        width: 44px;
+        height: 44px;
+        flex: 0 0 auto;
+        border-radius: 14px;
+        display: grid;
+        place-items: center;
+        font-size: 16px;
+        font-weight: 780;
+        background: rgba(255, 255, 255, 0.12);
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.48);
+      }
+      .pname { font-size: 14.5px; font-weight: 790; }
+      .pmeta { color: var(--glass-muted); font-size: 12.5px; margin-top: 2px; font-weight: 610; }
+      .row { display: flex; justify-content: space-between; gap: 12px; padding: 8px 0; font-size: 14.5px; }
+      .k { color: rgba(235, 246, 255, 0.58); font-weight: 640; }
+      .v { font-weight: 790; }
+      .paid-state {
+        display: inline-flex;
+        align-items: center;
+        gap: 7px;
+      }
+      .paid-state::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #57d878;
+        box-shadow: 0 0 0 4px rgba(87, 216, 120, 0.14);
+      }
+      .badge {
+        display: inline-flex;
+        margin-top: 11px;
+        padding: 7px 12px;
+        border-radius: 999px;
+        background: rgba(255, 255, 255, 0.12);
+        color: #fff;
+        font-size: 12.5px;
+        font-weight: 760;
+      }
+      .help summary {
+        list-style: none;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 14px;
+        cursor: pointer;
+        font-size: 14.5px;
+        font-weight: 790;
+      }
+      .help summary::-webkit-details-marker { display: none; }
+      .help p { margin: 12px 0 0; color: rgba(235, 246, 255, 0.68); line-height: 1.55; font-size: 13.5px; font-weight: 570; }
+
+      @media (max-width: 430px) {
+        .map-shell { height: 68%; min-height: 470px; }
+        .top-bar { justify-content: center; }
+        .sheet { transform: translateY(66%); }
+        .sheet.expanded { transform: translateY(34%); }
+        .content { padding-left: 18px; padding-right: 18px; }
+      }
+      @media (max-width: 760px) {
+        .pill.secondary { display: none; }
+      }
+      @media (min-width: 900px) {
+        body {
+          padding: 22px;
+          background:
+            radial-gradient(900px 520px at 72% 18%, rgba(151, 200, 236, 0.34), transparent 64%),
+            radial-gradient(760px 460px at 14% 20%, rgba(255, 255, 255, 0.96), transparent 70%),
+            linear-gradient(180deg, #f7f9fc 0%, #edf1f6 54%, #dde5ee 100%);
+        }
+        .stage {
+          width: min(96vw, 1500px);
+          height: min(92dvh, 900px);
+          display: grid;
+          grid-template-columns: minmax(340px, 430px) minmax(0, 1fr);
+          grid-template-rows: 76px minmax(0, 1fr);
+          gap: 16px;
+          padding: 18px;
+          border-radius: 36px;
+          background:
+            linear-gradient(135deg, rgba(255, 255, 255, 0.62), rgba(255, 255, 255, 0.30)),
+            radial-gradient(720px 420px at 72% 38%, rgba(88, 165, 224, 0.18), transparent 68%);
+          border: 1px solid rgba(255, 255, 255, 0.76);
+          box-shadow: 0 38px 120px rgba(51, 68, 90, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.82);
+        }
+        .map-shell {
+          position: relative;
+          inset: auto;
+          grid-column: 2;
+          grid-row: 2;
+          height: 100%;
+          min-height: 0;
+          border-radius: 30px;
+          background:
+            radial-gradient(720px 420px at 52% 40%, rgba(70, 154, 216, 0.22), transparent 66%),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.44), rgba(236, 241, 247, 0.25));
+          border: 1px solid rgba(255, 255, 255, 0.72);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.76), 0 26px 74px rgba(80, 96, 120, 0.20);
+        }
+        .map-shell::before {
+          opacity: 0.22;
+        }
+        .map-shell::after {
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.16) 0%, transparent 42%, rgba(255, 255, 255, 0.10) 100%),
+            radial-gradient(circle at 50% 50%, transparent 0 54%, rgba(255, 255, 255, 0.20) 74%, rgba(255, 255, 255, 0.32) 100%);
+        }
+        .top-bar {
+          display: none;
+        }
+        .desktop-route-card {
+          display: none;
+        }
+        .desktop-route-panel {
+          position: relative;
+          z-index: 30;
+          grid-column: 2;
+          grid-row: 1;
+          height: 100%;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          padding: 12px 26px;
+          border-radius: 24px;
+          color: #1d2939;
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.66), rgba(255, 255, 255, 0.34)),
+            radial-gradient(520px 140px at 50% 0%, rgba(129, 190, 236, 0.22), transparent 72%);
+          border: 1px solid rgba(255, 255, 255, 0.76);
+          backdrop-filter: blur(32px) saturate(165%);
+          -webkit-backdrop-filter: blur(32px) saturate(165%);
+          box-shadow: 0 18px 52px rgba(80, 96, 120, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.88);
+          pointer-events: none;
+        }
+        .desktop-route-kicker {
+          color: rgba(52, 64, 84, 0.62);
+          font-size: 11px;
+          font-weight: 800;
+          letter-spacing: 0.14em;
+          text-transform: uppercase;
+          text-align: center;
+          margin-bottom: 5px;
+        }
+        .desktop-route-line {
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          gap: 18px;
+          color: #111827;
+          font-size: clamp(18px, 2vw, 26px);
+          font-weight: 760;
+          letter-spacing: -0.035em;
+          white-space: nowrap;
+        }
+        .desktop-place {
+          display: flex;
+          align-items: center;
+          gap: 24px;
+          min-width: 0;
+        }
+        .desktop-place.destination {
+          justify-content: flex-end;
+          text-align: right;
+        }
+        .desktop-country {
+          font-size: clamp(34px, 4vw, 54px);
+          font-weight: 860;
+          letter-spacing: -0.055em;
+          line-height: 0.96;
+        }
+        .desktop-city {
+          margin-top: 8px;
+          color: rgba(235, 246, 255, 0.76);
+          font-size: clamp(17px, 1.6vw, 22px);
+          font-weight: 650;
+        }
+        .desktop-arrow {
+          color: rgba(52, 64, 84, 0.46);
+          font-size: 26px;
+          font-weight: 540;
+          transform: translateY(-1px);
+          text-shadow: none;
+        }
+        .sheet {
+          position: relative;
+          z-index: 21;
+          grid-column: 1;
+          grid-row: 1 / 3;
+          left: auto;
+          right: auto;
+          top: auto;
+          width: auto;
+          height: 100%;
+          transform: none;
+          border-radius: 28px;
+          color: #111827;
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.68), rgba(255, 255, 255, 0.34)),
+            radial-gradient(420px 220px at 30% 0%, rgba(255, 255, 255, 0.80), transparent 72%);
+          border: 1px solid rgba(255, 255, 255, 0.78);
+          box-shadow: 0 24px 72px rgba(80, 96, 120, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.90);
+          transition: none;
+        }
+        .sheet.expanded { transform: none; }
+        .grabber-area {
+          display: none;
+        }
+        .content {
+          padding: 28px 28px calc(28px + var(--safe-bottom));
+          overflow-y: auto;
+        }
+        .sheet::before {
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.42), transparent);
+        }
+        .eyebrow,
+        .order-no,
+        .section > .label-title {
+          color: rgba(52, 64, 84, 0.68);
+        }
+        .status,
+        .pct,
+        .name,
+        .v,
+        .delivery-date,
+        .eta .big,
+        .pname,
+        h1 {
+          color: #111827;
+        }
+        .legend,
+        .hint,
+        .sub,
+        .when,
+        .k,
+        .pmeta,
+        .delivery-title,
+        .pending .name {
+          color: rgba(52, 64, 84, 0.58);
+        }
+        .state-badge,
+        .badge {
+          color: rgba(17, 24, 39, 0.78);
+          background: rgba(255, 255, 255, 0.42);
+          border-color: rgba(255, 255, 255, 0.78);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+        }
+        .track {
+          background: rgba(17, 24, 39, 0.10);
+          box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.10), 0 1px 0 rgba(255, 255, 255, 0.55);
+        }
+        .sheet:not(.expanded) .content {
+          overflow-y: auto;
+        }
+        .hint {
+          margin-top: 22px;
+          padding-bottom: 18px;
+          border-bottom: 1px solid rgba(52, 64, 84, 0.10);
+        }
+        .section {
+          margin-top: 25px;
+        }
+        .sheet:not(.expanded) .section,
+        .sheet.expanded .section {
+          margin-top: 25px;
+          opacity: 1;
+        }
+        .sheet.expanded .section:first-of-type,
+        .sheet:not(.expanded) .section:first-of-type {
+          margin-top: 25px;
+        }
+        .sheet.expanded .card {
+          border-radius: 22px;
+          padding: 16px;
+        }
+        .card {
+          color: #111827;
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.52), rgba(255, 255, 255, 0.28));
+          border-color: rgba(255, 255, 255, 0.72);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.86), 0 18px 48px rgba(80, 96, 120, 0.12);
+        }
+        .timeline::before {
+          background: linear-gradient(#34c759 0 34%, #0a84ff 34% 54%, rgba(52, 64, 84, 0.16) 54%);
+        }
+        .node {
+          background: rgba(52, 64, 84, 0.14);
+          border-color: rgba(52, 64, 84, 0.16);
+        }
+        .delivery-card {
+          background: rgba(255, 255, 255, 0.44);
+          border-color: rgba(255, 255, 255, 0.74);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.82), 0 14px 34px rgba(80, 96, 120, 0.12);
+        }
+        .delivery-icon,
+        .jersey {
+          background: rgba(255, 255, 255, 0.54);
+          border-color: rgba(255, 255, 255, 0.78);
+        }
+        .delivery-arrow {
+          color: rgba(52, 64, 84, 0.54);
+        }
+        .product + .product {
+          border-top-color: rgba(52, 64, 84, 0.10);
+        }
+        .sheet.expanded .step {
+          padding-bottom: 21px;
+        }
+        .sheet.expanded .name {
+          font-size: 15px;
+        }
+        .sheet.expanded .when {
+          font-size: 12.5px;
+          margin-top: 3px;
+        }
+        .sheet.expanded .delivery-card {
+          margin-top: 16px;
+          padding: 14px 15px;
+          border-radius: 20px;
+        }
+        .sheet.expanded .delivery-icon {
+          width: 38px;
+          height: 38px;
+          border-radius: 13px;
+        }
+        .sheet.expanded .delivery-date {
+          font-size: 18px;
+        }
+
+        /* Desktop v2: Find My style, floating glass over the visual scene. */
+        body {
+          padding: 0;
+          background:
+            radial-gradient(860px 620px at 24% 28%, rgba(210, 228, 240, 0.34), transparent 66%),
+            radial-gradient(880px 560px at 68% 36%, rgba(40, 125, 196, 0.32), transparent 66%),
+            linear-gradient(180deg, #8ca9bc 0%, #103253 38%, #06192e 64%, #020812 100%);
+        }
+        .stage {
+          width: 100vw;
+          height: 100dvh;
+          display: block;
+          padding: 0;
+          overflow: hidden;
+          border-radius: 0;
+          background:
+            radial-gradient(720px 520px at 20% 28%, rgba(223, 238, 248, 0.30), transparent 68%),
+            radial-gradient(900px 620px at 52% 22%, rgba(190, 220, 240, 0.16), transparent 62%),
+            radial-gradient(980px 600px at 66% 42%, rgba(38, 132, 210, 0.24), transparent 70%),
+            linear-gradient(115deg, #7e9caf 0%, #315d7d 18%, #123859 38%, #071e38 66%, #020812 100%);
+          border: 0;
+          box-shadow: none;
+        }
+        .map-shell {
+          position: absolute;
+          inset: 0;
+          width: 100%;
+          height: 100%;
+          min-height: 0;
+          border-radius: inherit;
+          border: 0;
+          background:
+            radial-gradient(620px 460px at 18% 27%, rgba(224, 240, 250, 0.22), transparent 72%),
+            radial-gradient(520px 280px at 49% 7%, rgba(230, 242, 250, 0.14), transparent 74%),
+            radial-gradient(850px 500px at 67% 42%, rgba(70, 157, 226, 0.22), transparent 68%),
+            linear-gradient(115deg, rgba(126, 156, 175, 0.44) 0%, rgba(69, 111, 143, 0.26) 19%, rgba(10, 35, 62, 0.92) 42%, #061a31 68%, #020914 100%);
+          box-shadow: none;
+        }
+        .map-shell::before {
+          opacity: 0.22;
+        }
+        .map-shell::after {
+          background:
+            radial-gradient(650px 520px at 21% 32%, rgba(255, 255, 255, 0.09), transparent 72%),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.05) 0%, transparent 31%, transparent 78%, rgba(2, 8, 18, 0.18) 100%),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.06) 0%, transparent 38%, rgba(0, 0, 0, 0.18) 100%);
+        }
+        .desktop-route-panel {
+          position: absolute;
+          z-index: 34;
+          top: 28px;
+          left: calc(50% + clamp(155px, 14.5vw, 218px));
+          width: min(520px, calc(100% - 560px));
+          min-width: 410px;
+          height: 52px;
+          transform: translateX(-50%);
+          padding: 8px 22px;
+          border-radius: 999px;
+          color: rgba(255, 255, 255, 0.94);
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.155), rgba(255, 255, 255, 0.052));
+          border: 1px solid rgba(255, 255, 255, 0.16);
+          box-shadow: 0 16px 46px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.22);
+          backdrop-filter: blur(38px) saturate(190%);
+          -webkit-backdrop-filter: blur(38px) saturate(190%);
+        }
+        .desktop-route-kicker {
+          display: none;
+        }
+        .desktop-route-line {
+          color: rgba(255, 255, 255, 0.94);
+          font-size: clamp(14px, 1.35vw, 18px);
+          font-weight: 720;
+          gap: 12px;
+          letter-spacing: -0.02em;
+        }
+        .desktop-arrow {
+          color: rgba(180, 220, 255, 0.72);
+          font-size: 20px;
+        }
+        .sheet {
+          position: absolute;
+          z-index: 32;
+          left: clamp(18px, 2.6vw, 34px);
+          top: clamp(18px, 3vh, 30px);
+          bottom: clamp(18px, 3vh, 30px);
+          width: min(382px, 30vw);
+          height: auto;
+          color: rgba(255, 255, 255, 0.94);
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.045)),
+            radial-gradient(420px 240px at 28% 0%, rgba(255, 255, 255, 0.11), transparent 72%),
+            linear-gradient(180deg, rgba(8, 28, 52, 0.30), rgba(5, 18, 34, 0.20));
+          border: 1px solid rgba(255, 255, 255, 0.145);
+          box-shadow: 0 24px 86px rgba(0, 0, 0, 0.31), inset 0 1px 0 rgba(255, 255, 255, 0.19);
+          backdrop-filter: blur(48px) saturate(200%);
+          -webkit-backdrop-filter: blur(48px) saturate(200%);
+        }
+        .sheet::before {
+          background: linear-gradient(180deg, rgba(255, 255, 255, 0.16), transparent);
+        }
+        .content {
+          padding: 42px 28px calc(26px + var(--safe-bottom));
+        }
+        .eyebrow,
+        .order-no,
+        .section > .label-title,
+        .legend,
+        .hint,
+        .sub,
+        .when,
+        .k,
+        .pmeta,
+        .delivery-title,
+        .pending .name {
+          color: rgba(235, 246, 255, 0.62);
+        }
+        .status,
+        .pct,
+        .name,
+        .v,
+        .delivery-date,
+        .eta .big,
+        .pname,
+        h1 {
+          color: rgba(255, 255, 255, 0.96);
+        }
+        .state-badge,
+        .badge {
+          color: rgba(255, 255, 255, 0.82);
+          background: rgba(255, 255, 255, 0.12);
+          border-color: rgba(255, 255, 255, 0.18);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.34);
+        }
+        .track {
+          background: rgba(255, 255, 255, 0.12);
+          box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.24), 0 1px 0 rgba(255, 255, 255, 0.12);
+        }
+        .progress-row {
+          align-items: flex-end;
+        }
+        .legend {
+          display: none;
+        }
+        .hint {
+          border-bottom-color: rgba(255, 255, 255, 0.10);
+        }
+        .card {
+          color: rgba(255, 255, 255, 0.94);
+          background: rgba(255, 255, 255, 0.058);
+          border-color: rgba(255, 255, 255, 0.085);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13), 0 16px 42px rgba(0, 0, 0, 0.11);
+          backdrop-filter: blur(24px) saturate(170%);
+          -webkit-backdrop-filter: blur(24px) saturate(170%);
+        }
+        .timeline::before {
+          background: linear-gradient(#63d884 0 34%, #0a84ff 34% 54%, rgba(255, 255, 255, 0.18) 54%);
+        }
+        .node {
+          background: rgba(255, 255, 255, 0.16);
+          border-color: rgba(255, 255, 255, 0.16);
+        }
+        .delivery-card {
+          background: rgba(255, 255, 255, 0.060);
+          border-color: rgba(255, 255, 255, 0.095);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.13), 0 14px 34px rgba(0, 0, 0, 0.11);
+        }
+        .delivery-icon,
+        .jersey {
+          background: rgba(255, 255, 255, 0.14);
+          border-color: rgba(255, 255, 255, 0.18);
+        }
+        .delivery-arrow {
+          color: rgba(255, 255, 255, 0.64);
+        }
+        .product + .product {
+          border-top-color: rgba(255, 255, 255, 0.10);
+        }
+        .map-label {
+          display: none;
+        }
+
+        body.look-icloud {
+          background:
+            radial-gradient(980px 620px at 24% 18%, rgba(255, 235, 222, 0.78), transparent 64%),
+            radial-gradient(960px 620px at 46% 12%, rgba(244, 246, 255, 0.64), transparent 68%),
+            radial-gradient(1050px 680px at 82% 44%, rgba(23, 52, 91, 0.92), transparent 70%),
+            linear-gradient(112deg, #d9c6d8 0%, #e9e8f0 28%, #6f86ad 47%, #132b4e 70%, #081327 100%);
+        }
+        body.look-icloud .stage {
+          background:
+            radial-gradient(900px 620px at 24% 18%, rgba(255, 237, 222, 0.66), transparent 66%),
+            radial-gradient(900px 580px at 46% 14%, rgba(247, 248, 255, 0.48), transparent 66%),
+            radial-gradient(980px 640px at 74% 50%, rgba(25, 56, 99, 0.86), transparent 72%),
+            linear-gradient(112deg, #d4c0d3 0%, #edf0f5 29%, #6e86ad 47%, #142d51 70%, #071326 100%);
+        }
+        body.look-icloud .map-shell {
+          background:
+            radial-gradient(780px 540px at 25% 22%, rgba(255, 233, 214, 0.58), transparent 66%),
+            radial-gradient(760px 520px at 44% 19%, rgba(250, 250, 255, 0.42), transparent 68%),
+            radial-gradient(960px 580px at 74% 45%, rgba(39, 77, 129, 0.58), transparent 70%),
+            linear-gradient(112deg, rgba(216, 195, 214, 0.78) 0%, rgba(240, 243, 249, 0.58) 31%, rgba(94, 120, 160, 0.42) 48%, rgba(14, 36, 70, 0.95) 72%, #071326 100%);
+        }
+        body.look-icloud .map-shell::before {
+          opacity: 0.12;
+        }
+        body.look-icloud .map-shell::after {
+          background:
+            radial-gradient(760px 540px at 31% 24%, rgba(255, 255, 255, 0.32), transparent 70%),
+            radial-gradient(740px 520px at 70% 40%, rgba(78, 130, 204, 0.24), transparent 70%),
+            linear-gradient(90deg, rgba(255, 255, 255, 0.11) 0%, rgba(255, 255, 255, 0.04) 32%, transparent 57%, rgba(2, 8, 18, 0.22) 100%);
+        }
+        body.look-icloud .desktop-route-panel,
+        body.look-icloud .sheet {
+          color: rgba(15, 23, 42, 0.92);
+          background:
+            linear-gradient(180deg, rgba(255, 255, 255, 0.42), rgba(255, 255, 255, 0.16)),
+            radial-gradient(520px 260px at 15% 0%, rgba(255, 245, 238, 0.36), transparent 70%),
+            linear-gradient(180deg, rgba(255, 255, 255, 0.20), rgba(92, 112, 145, 0.08));
+          border-color: rgba(255, 255, 255, 0.54);
+          box-shadow: 0 28px 90px rgba(33, 45, 67, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.72);
+          backdrop-filter: blur(54px) saturate(185%);
+          -webkit-backdrop-filter: blur(54px) saturate(185%);
+        }
+        body.look-icloud .desktop-route-line,
+        body.look-icloud .status,
+        body.look-icloud .pct,
+        body.look-icloud .name,
+        body.look-icloud .v,
+        body.look-icloud .delivery-date,
+        body.look-icloud .eta .big,
+        body.look-icloud .pname,
+        body.look-icloud h1 {
+          color: rgba(15, 23, 42, 0.94);
+        }
+        body.look-icloud .desktop-arrow,
+        body.look-icloud .eyebrow,
+        body.look-icloud .order-no,
+        body.look-icloud .section > .label-title,
+        body.look-icloud .collapse-summary,
+        body.look-icloud .hint,
+        body.look-icloud .sub,
+        body.look-icloud .when,
+        body.look-icloud .k,
+        body.look-icloud .pmeta,
+        body.look-icloud .delivery-title,
+        body.look-icloud .pending .name {
+          color: rgba(40, 49, 68, 0.62);
+        }
+        body.look-icloud .collapse-summary span:last-child,
+        body.look-icloud .collapse-summary::after {
+          color: rgba(40, 49, 68, 0.50);
+        }
+        body.look-icloud .inline-help summary {
+          color: rgba(15, 23, 42, 0.78);
+          background: rgba(255, 255, 255, 0.26);
+          border-color: rgba(255, 255, 255, 0.42);
+        }
+        body.look-icloud .inline-help p {
+          color: rgba(40, 49, 68, 0.70);
+        }
+        body.look-icloud .state-badge,
+        body.look-icloud .badge,
+        body.look-icloud .card,
+        body.look-icloud .delivery-card {
+          color: rgba(15, 23, 42, 0.90);
+          background: rgba(255, 255, 255, 0.24);
+          border-color: rgba(255, 255, 255, 0.44);
+          box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.58), 0 14px 38px rgba(45, 58, 80, 0.10);
+        }
+        body.look-icloud .track {
+          background: rgba(15, 23, 42, 0.12);
+          box-shadow: inset 0 1px 2px rgba(15, 23, 42, 0.10), 0 1px 0 rgba(255, 255, 255, 0.44);
+        }
+        body.look-icloud .hint {
+          border-bottom-color: rgba(15, 23, 42, 0.10);
+        }
+        body.look-icloud .timeline::before {
+          background: linear-gradient(#34c759 0 34%, #0a84ff 34% 54%, rgba(15, 23, 42, 0.16) 54%);
+        }
+        body.look-icloud .node {
+          background: rgba(15, 23, 42, 0.12);
+          border-color: rgba(15, 23, 42, 0.16);
+        }
+        body.look-icloud .delivery-icon,
+        body.look-icloud .jersey {
+          background: rgba(255, 255, 255, 0.34);
+          border-color: rgba(255, 255, 255, 0.46);
+        }
+      }
+
+      @keyframes shimmer {
+        0%, 18% { opacity: 0; transform: translateX(-120%); }
+        28% { opacity: 0.72; }
+        48% { opacity: 0.52; transform: translateX(160%); }
+        58%, 100% { opacity: 0; transform: translateX(160%); }
+      }
+      @keyframes routeFlow { from { stroke-dashoffset: 94; } to { stroke-dashoffset: 0; } }
+      @keyframes locationHaloPulse {
+        0%, 100% { opacity: 0.95; transform: translate(-50%, -50%) scale(1); }
+        50% { opacity: 0.42; transform: translate(-50%, -50%) scale(1.2); }
+      }
+      @keyframes softPulse {
+        0%, 100% { opacity: 0.95; transform: scale(1); }
+        50% { opacity: 0.42; transform: scale(1.2); }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        *, *::before, *::after {
+          animation-duration: 0.01ms !important;
+          animation-iteration-count: 1 !important;
+          transition-duration: 0.01ms !important;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="stage" id="stage">
+      <section class="desktop-route-panel" aria-label="Ruta del pedido Guangzhou a Buenos Aires">
+        <div>
+          <div class="desktop-route-kicker">Seguimiento internacional</div>
+          <div class="desktop-route-line">
+            <span>Guangzhou, China</span>
+            <span class="desktop-arrow">→</span>
+            <span>Buenos Aires, Argentina</span>
+          </div>
+        </div>
+      </section>
+      <section class="map-shell" id="map" aria-label="Globo 3D conceptual del recorrido Guangzhou a Buenos Aires">
+        <canvas id="globeCanvas"></canvas>
+        <svg class="route-overlay" id="routeOverlay" aria-hidden="true">
+          <line class="route-base" id="screenRouteBase" x1="0" y1="0" x2="0" y2="0"></line>
+          <line class="route-progress" id="screenRouteProgress" x1="0" y1="0" x2="0" y2="0"></line>
+          <line class="route-shimmer" id="screenRouteShimmer" x1="0" y1="0" x2="0" y2="0"></line>
+          <circle class="route-pulse-dot" id="screenRoutePulse" cx="0" cy="0" r="4"></circle>
+        </svg>
+        <div class="top-bar">
+          <div class="pill"><span class="spark"></span> Guangzhou → Buenos Aires</div>
+          <div class="pill secondary">Llegada estimada · 35-45 días</div>
+        </div>
+        <div class="desktop-route-card" aria-hidden="true">
+          <div class="desktop-place">
+            <div class="desktop-flag china"></div>
+            <div>
+              <div class="desktop-country">China</div>
+              <div class="desktop-city">Guangzhou</div>
+            </div>
+          </div>
+          <div class="desktop-arrow">→</div>
+          <div class="desktop-place destination">
+            <div>
+              <div class="desktop-country">Argentina</div>
+              <div class="desktop-city">Buenos Aires</div>
+            </div>
+            <div class="desktop-flag argentina"></div>
+          </div>
+        </div>
+        <div class="map-label" id="originLabel">Guangzhou <small>CN</small></div>
+        <div class="map-label" id="destLabel">Buenos Aires <small>AR</small></div>
+        <div class="location-dot" id="locationDot" aria-hidden="true"></div>
+        <div class="debug-hud" id="debugHud" hidden></div>
+      </section>
+
+      <section class="sheet" id="sheet" aria-label="Detalle del pedido">
+        <div class="grabber-area" id="grab"><div class="grabber"></div></div>
+        <div class="content">
+          <div class="eyebrow"><span>Seguimiento del pedido</span></div>
+          <div class="title-row">
+            <h1>Pedido #0042</h1>
+          </div>
+          <div class="status"><span class="pulse"></span> En vuelo internacional</div>
+
+          <div class="progress-wrap">
+            <div class="progress-head">
+              <div class="pct" id="pctText">0<span>%</span></div>
+            </div>
+            <div class="track"><div class="fill" id="fill"></div></div>
+          </div>
+          <div class="hint">Deslizá para seguir el viaje</div>
+
+          <div class="section">
+            <div class="label-title">Estado del envío</div>
+            <div class="card">
+              <div class="timeline">
+                <div class="step done"><div class="node"></div><div class="name">Pedido confirmado</div><div class="when">12 Abr, 10:30</div></div>
+                <div class="step done"><div class="node"></div><div class="name">En preparación</div><div class="when">13 Abr, 08:15</div></div>
+                <div class="step current">
+                  <div class="node"></div>
+                  <div class="step-head">
+                    <div>
+                      <div class="name">En vuelo internacional</div>
+                      <div class="when">15 Abr, 14:45</div>
+                    </div>
+                    <details class="inline-help">
+                      <summary>¿Qué significa?</summary>
+                      <p>Tu pedido ya salió de China y está atravesando la etapa internacional. No necesitás realizar ninguna acción. Te notificaremos cuando llegue a Argentina.</p>
+                    </details>
+                  </div>
+                </div>
+                <div class="step pending"><div class="node"></div><div class="name">En aduana</div><div class="when">Pendiente</div></div>
+                <div class="step pending"><div class="node"></div><div class="name">En camino a destino</div><div class="when">Pendiente</div></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="section">
+            <div class="label-title">Entrega estimada</div>
+            <div class="delivery-card">
+              <div class="delivery-icon" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <path d="M3 7.5h10.5v8.2H3z" fill="rgba(10,132,255,.70)" />
+                  <path d="M13.5 10h3.4l3.1 3.2v2.5h-6.5z" fill="rgba(255,255,255,.72)" />
+                  <circle cx="7" cy="17" r="1.8" fill="#12304a" />
+                  <circle cx="17.2" cy="17" r="1.8" fill="#12304a" />
+                  <path d="M4.2 5.8h8.2M5.1 10.1h4.8" stroke="rgba(255,255,255,.82)" stroke-width="1.4" stroke-linecap="round" />
+                </svg>
+              </div>
+              <div class="delivery-copy">
+                <div class="delivery-title">Estimado desde el despacho internacional</div>
+                <div class="delivery-date">20 May - 30 May</div>
+              </div>
+            </div>
+          </div>
+
+          <details class="section collapse-section">
+            <summary class="collapse-summary">
+              <span>Productos incluidos</span>
+              <span>2 productos</span>
+            </summary>
+            <div class="card">
+              <div class="product"><div class="jersey">10</div><div><div class="pname">Argentina Titular 2024</div><div class="pmeta">Talle L · Jugador</div></div></div>
+              <div class="product"><div class="jersey">12</div><div><div class="pname">Boca Juniors 2024</div><div class="pmeta">Talle M · Hincha</div></div></div>
+            </div>
+          </details>
+
+          <details class="section collapse-section">
+            <summary class="collapse-summary">
+              <span>Resumen económico</span>
+              <span>Ver detalle</span>
+            </summary>
+            <div class="card">
+              <div class="row"><span class="k">Total</span><span class="v">$180.000</span></div>
+              <div class="row"><span class="k">Seña abonada</span><span class="v paid-state">Confirmada</span></div>
+              <div class="row"><span class="k">Saldo pendiente</span><span class="v">$90.000</span></div>
+            </div>
+          </details>
+        </div>
+      </section>
+    </main>
+
+    <script type="importmap">
+      {
+        "imports": {
+          "three": "../node_modules/three/build/three.module.js"
+        }
+      }
+    </script>
+    <script type="module">
+      import * as THREE from "../node_modules/three/build/three.module.js";
+      import { GLTFLoader } from "../node_modules/three/examples/jsm/loaders/GLTFLoader.js";
+
+      const progress = 0.45;
+      const routeAltitude = 0.035;
+      const globeRadius = 1.62;
+      const params = new URLSearchParams(window.location.search);
+      const debugMode = params.get("debug") === "1" || params.get("debug") === "true";
+      const visualLook = params.get("look") || "";
+      document.body.classList.toggle("look-icloud", visualLook === "icloud");
+      const calibration = {
+        mode: params.get("coord") || "real",
+        lngOffset: Number(params.get("lngOffset") ?? params.get("lonOffset") ?? "0"),
+        visualRotX: Number(params.get("visualRotX") || "0"),
+        visualRotY: Number(params.get("visualRotY") || "90"),
+        visualRotZ: Number(params.get("visualRotZ") || "0"),
+      };
+      const cities = {
+        guangzhou: { name: "Guangzhou", country: "CN", lat: 23.1291, lng: 113.2644 },
+        buenosAires: { name: "Buenos Aires", country: "AR", lat: -34.6037, lng: -58.3816 },
+      };
+      const debugCities = [
+        cities.buenosAires,
+        cities.guangzhou,
+        { name: "Londres", country: "UK", lat: 51.5074, lng: -0.1278 },
+        { name: "Nueva York", country: "US", lat: 40.7128, lng: -74.0060 },
+        { name: "Tokio", country: "JP", lat: 35.6762, lng: 139.6503 },
+        { name: "Sidney", country: "AU", lat: -33.8688, lng: 151.2093 },
+      ];
+
+      const stage = document.getElementById("stage");
+      const map = document.getElementById("map");
+      const canvas = document.getElementById("globeCanvas");
+      const sheet = document.getElementById("sheet");
+      const sheetContent = sheet.querySelector(".content");
+      const grab = document.getElementById("grab");
+      const locationDot = document.getElementById("locationDot");
+      const originLabel = document.getElementById("originLabel");
+      const destLabel = document.getElementById("destLabel");
+      const routeOverlay = document.getElementById("routeOverlay");
+      const screenRouteBase = document.getElementById("screenRouteBase");
+      const screenRouteProgress = document.getElementById("screenRouteProgress");
+      const screenRouteShimmer = document.getElementById("screenRouteShimmer");
+      const screenRoutePulse = document.getElementById("screenRoutePulse");
+      const debugHud = document.getElementById("debugHud");
+      routeOverlay.hidden = true;
+
+      function enhanceDetailsMotion(details) {
+        const summary = details.querySelector("summary");
+        if (!summary) return;
+        let animationTimer = null;
+        summary.addEventListener("click", (event) => {
+          event.preventDefault();
+          if (animationTimer) window.clearTimeout(animationTimer);
+
+          const opening = !details.open;
+          const startHeight = details.offsetHeight;
+          let endHeight = summary.offsetHeight;
+          if (opening) {
+            details.open = true;
+            endHeight = details.offsetHeight;
+          }
+          const content = [...details.children].filter((child) => child !== summary);
+
+          details.style.height = `${startHeight}px`;
+          details.style.overflow = "hidden";
+          details.style.transition = "height 360ms cubic-bezier(0.22, 1, 0.36, 1)";
+          requestAnimationFrame(() => {
+            details.style.height = `${endHeight}px`;
+          });
+          content.forEach((child) => {
+            child.animate(
+              opening
+                ? [
+                    { opacity: 0, transform: "translateY(-6px)" },
+                    { opacity: 1, transform: "translateY(0)" },
+                  ]
+                : [
+                    { opacity: 1, transform: "translateY(0)" },
+                    { opacity: 0, transform: "translateY(-4px)" },
+                  ],
+              {
+                duration: opening ? 320 : 220,
+                easing: "cubic-bezier(0.22, 1, 0.36, 1)",
+              }
+            );
+          });
+          animationTimer = window.setTimeout(() => {
+            details.open = opening;
+            details.style.height = "";
+            details.style.overflow = "";
+            details.style.transition = "";
+            animationTimer = null;
+          }, opening ? 380 : 320);
+        });
+      }
+      document.querySelectorAll(".collapse-section, .inline-help").forEach(enhanceDetailsMotion);
+
+      const scene = new THREE.Scene();
+      scene.fog = new THREE.FogExp2(0x020711, 0.045);
+
+      const camera = new THREE.PerspectiveCamera(33, 1, 0.1, 100);
+      camera.position.set(0, 0.10, 4.35);
+
+      const renderer = new THREE.WebGLRenderer({
+        canvas,
+        antialias: true,
+        alpha: true,
+        powerPreference: "high-performance",
+      });
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.setClearColor(0x000000, 0);
+      renderer.outputColorSpace = THREE.SRGBColorSpace;
+      renderer.toneMapping = THREE.ACESFilmicToneMapping;
+      renderer.toneMappingExposure = visualLook === "icloud" ? 1.58 : 1.28;
+
+      const textureLoader = new THREE.TextureLoader();
+      const earthMap = textureLoader.load("./assets/earth/earth_atmos_2048.jpg");
+      const earthNormal = textureLoader.load("./assets/earth/earth_normal_2048.jpg");
+      const earthSpecular = textureLoader.load("./assets/earth/earth_specular_2048.jpg");
+      for (const texture of [earthMap, earthNormal, earthSpecular]) {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.anisotropy = 8;
+      }
+
+      const globeGroup = new THREE.Group();
+      const globeModelGroup = new THREE.Group();
+      const trackingLayer = new THREE.Group();
+      const earth = new THREE.Mesh(
+        new THREE.SphereGeometry(globeRadius, 128, 128),
+        new THREE.MeshStandardMaterial({
+          map: earthMap,
+          normalMap: earthNormal,
+          normalScale: new THREE.Vector2(0.042, 0.042),
+          specularMap: earthSpecular,
+          roughness: 0.50,
+          metalness: 0,
+          color: new THREE.Color(0xf2ffff),
+          emissive: new THREE.Color(0x17344c),
+          emissiveIntensity: 0.18,
+        })
+      );
+      globeModelGroup.add(earth);
+      globeGroup.add(globeModelGroup);
+      globeGroup.add(trackingLayer);
+
+      const oceanTint = new THREE.Mesh(
+        new THREE.SphereGeometry(globeRadius * 1.002, 128, 128),
+        new THREE.MeshStandardMaterial({
+          color: 0x8fe8ff,
+          transparent: true,
+          opacity: 0.22,
+          roughness: 0.62,
+          metalness: 0,
+          depthWrite: false,
+        })
+      );
+      globeModelGroup.add(oceanTint);
+
+      document.body.dataset.globeModel = "geographic-earth-texture";
+
+      async function loadPreviousVisualGlobe() {
+        const loader = new GLTFLoader();
+        try {
+          const gltf = await loader.loadAsync("./assets/models/globo-terraqueo-mapa-fisico.glb");
+          const model = gltf.scene;
+          const box = new THREE.Box3().setFromObject(model);
+          const size = box.getSize(new THREE.Vector3());
+          const center = box.getCenter(new THREE.Vector3());
+          const maxAxis = Math.max(size.x, size.y, size.z) || 1;
+
+          model.position.sub(center);
+          model.scale.setScalar((globeRadius * 2) / maxAxis);
+          model.rotation.set(
+            THREE.MathUtils.degToRad(calibration.visualRotX),
+            THREE.MathUtils.degToRad(calibration.visualRotY),
+            THREE.MathUtils.degToRad(calibration.visualRotZ)
+          );
+          model.traverse((child) => {
+            if (!child.isMesh || !child.material) return;
+            const materials = Array.isArray(child.material) ? child.material : [child.material];
+            materials.forEach((material) => {
+              material.roughness = Math.min(0.82, material.roughness ?? 0.62);
+              material.metalness = material.metalness ?? 0;
+              material.needsUpdate = true;
+            });
+          });
+
+          globeModelGroup.clear();
+          globeModelGroup.add(model);
+          document.body.dataset.globeModel = "previous-visual-globe-real-tracking";
+        } catch {
+          document.body.dataset.globeModel = "geographic-earth-texture";
+        }
+      }
+      loadPreviousVisualGlobe();
+
+      const atmosphere = new THREE.Mesh(
+        new THREE.SphereGeometry(globeRadius * 1.012, 128, 128),
+        new THREE.ShaderMaterial({
+          side: THREE.BackSide,
+          transparent: true,
+          depthWrite: false,
+          uniforms: {
+            glowColor: { value: new THREE.Color(0x58baff) },
+            coeficient: { value: 0.26 },
+            power: { value: 2.25 },
+          },
+          vertexShader: `
+            varying vec3 vNormal;
+            varying vec3 vWorldPosition;
+            void main() {
+              vNormal = normalize(normalMatrix * normal);
+              vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+              vWorldPosition = worldPosition.xyz;
+              gl_Position = projectionMatrix * viewMatrix * worldPosition;
+            }
+          `,
+          fragmentShader: `
+            uniform vec3 glowColor;
+            uniform float coeficient;
+            uniform float power;
+            varying vec3 vNormal;
+            varying vec3 vWorldPosition;
+            void main() {
+              vec3 worldCameraToVertex = normalize(vWorldPosition - cameraPosition);
+              float intensity = pow(coeficient + dot(vNormal, worldCameraToVertex), power);
+              gl_FragColor = vec4(glowColor, clamp(intensity, 0.0, 0.78));
+            }
+          `,
+        })
+      );
+      globeGroup.add(atmosphere);
+      scene.add(globeGroup);
+
+      const ambient = new THREE.HemisphereLight(
+        visualLook === "icloud" ? 0xfff4e6 : 0xf3fbff,
+        visualLook === "icloud" ? 0x314766 : 0x17344d,
+        visualLook === "icloud" ? 3.25 : 2.75
+      );
+      scene.add(ambient);
+
+      const sun = new THREE.DirectionalLight(visualLook === "icloud" ? 0xfff1df : 0xffffff, visualLook === "icloud" ? 6.35 : 5.45);
+      sun.position.set(visualLook === "icloud" ? -3.8 : -2.6, visualLook === "icloud" ? 3.75 : 3.35, 4.9);
+      scene.add(sun);
+
+      const rim = new THREE.DirectionalLight(0x8fcfff, visualLook === "icloud" ? 2.95 : 2.3);
+      rim.position.set(3.4, visualLook === "icloud" ? 0.15 : -0.3, -2.4);
+      scene.add(rim);
+
+      const cameraFill = new THREE.PointLight(visualLook === "icloud" ? 0xffefe0 : 0xd7f3ff, visualLook === "icloud" ? 1.65 : 1.25, 8);
+      cameraFill.position.set(0.2, 0.2, 4.8);
+      scene.add(cameraFill);
+
+      const starGeometry = new THREE.BufferGeometry();
+      const starCount = 360;
+      const starPositions = new Float32Array(starCount * 3);
+      for (let i = 0; i < starCount; i += 1) {
+        const radius = 8 + Math.random() * 10;
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(THREE.MathUtils.randFloatSpread(2));
+        starPositions[i * 3] = radius * Math.sin(phi) * Math.cos(theta);
+        starPositions[i * 3 + 1] = radius * Math.sin(phi) * Math.sin(theta);
+        starPositions[i * 3 + 2] = -Math.abs(radius * Math.cos(phi)) - 2;
+      }
+      starGeometry.setAttribute("position", new THREE.BufferAttribute(starPositions, 3));
+      scene.add(new THREE.Points(
+        starGeometry,
+        new THREE.PointsMaterial({
+          color: 0xffffff,
+          size: 0.012,
+          sizeAttenuation: true,
+          transparent: true,
+          opacity: 0.82,
+        })
+      ));
+
+      function latLngToVector3(lat, lng, radius = globeRadius) {
+        const phi = THREE.MathUtils.degToRad(90 - lat);
+        const theta = THREE.MathUtils.degToRad(lng + calibration.lngOffset + 180);
+        const x = -radius * Math.sin(phi) * Math.cos(theta);
+        const z = radius * Math.sin(phi) * Math.sin(theta);
+        const y = radius * Math.cos(phi);
+        const modes = {
+          real: [x, y, z],
+          invertLng: [-x, y, z],
+          flipZ: [x, y, -z],
+          flipX: [-x, y, z],
+          flipBoth: [-x, y, -z],
+          swapXZ: [z, y, x],
+          swapNeg: [-z, y, x],
+        };
+        const picked = modes[calibration.mode] || modes.real;
+        return new THREE.Vector3(picked[0], picked[1], picked[2]);
+      }
+
+      function makeLatLngPoint(lat, lng, radius = globeRadius) {
+        const phi = THREE.MathUtils.degToRad(90 - lat);
+        const theta = THREE.MathUtils.degToRad(lng + 180);
+        return new THREE.Vector3(
+          -radius * Math.sin(phi) * Math.cos(theta),
+          radius * Math.cos(phi),
+          radius * Math.sin(phi) * Math.sin(theta)
+        );
+      }
+
+      function makeSouthOceanCap(maxLat = -61, radius = globeRadius * 1.004) {
+        const positions = [];
+        const indices = [];
+        const latSteps = 8;
+        const lngSteps = 96;
+        for (let latIndex = 0; latIndex <= latSteps; latIndex += 1) {
+          const lat = -90 + ((maxLat + 90) * latIndex) / latSteps;
+          for (let lngIndex = 0; lngIndex <= lngSteps; lngIndex += 1) {
+            const lng = -180 + (360 * lngIndex) / lngSteps;
+            const p = makeLatLngPoint(lat, lng, radius);
+            positions.push(p.x, p.y, p.z);
+          }
+        }
+        const row = lngSteps + 1;
+        for (let latIndex = 0; latIndex < latSteps; latIndex += 1) {
+          for (let lngIndex = 0; lngIndex < lngSteps; lngIndex += 1) {
+            const a = latIndex * row + lngIndex;
+            const b = a + row;
+            indices.push(a, b, a + 1, b, b + 1, a + 1);
+          }
+        }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setIndex(indices);
+        geometry.computeVertexNormals();
+        return new THREE.Mesh(
+          geometry,
+          new THREE.MeshStandardMaterial({
+            color: 0x8edff0,
+            transparent: true,
+            opacity: 0.78,
+            roughness: 0.64,
+            metalness: 0,
+            depthWrite: false,
+          })
+        );
+      }
+
+      const southOceanCap = makeSouthOceanCap();
+      globeModelGroup.add(southOceanCap);
+
+      function yawQuaternionForFocus(direction) {
+        const yaw = Math.atan2(-direction.x, direction.z);
+        return new THREE.Quaternion().setFromEuler(new THREE.Euler(0, yaw, 0, "XYZ"));
+      }
+
+      function raisedGeoPoint(lat, lng, radius = globeRadius, altitude = 0) {
+        return latLngToVector3(lat, lng, radius + altitude).normalize().multiplyScalar(radius + altitude);
+      }
+
+      function greatCirclePoint(a, b, t, radius = globeRadius) {
+        const start = a.clone().normalize();
+        const end = b.clone().normalize();
+        const omega = Math.acos(THREE.MathUtils.clamp(start.dot(end), -1, 1));
+        const sinOmega = Math.sin(omega);
+        if (sinOmega < 0.0001) return start.multiplyScalar(radius);
+        const p = start.multiplyScalar(Math.sin((1 - t) * omega) / sinOmega)
+          .add(end.multiplyScalar(Math.sin(t * omega) / sinOmega))
+          .normalize();
+        const altitude = Math.sin(Math.PI * t) * routeAltitude;
+        return p.multiplyScalar(radius + altitude + 0.012);
+      }
+
+      const startSurface = latLngToVector3(cities.guangzhou.lat, cities.guangzhou.lng, globeRadius + 0.014);
+      const endSurface = latLngToVector3(cities.buenosAires.lat, cities.buenosAires.lng, globeRadius + 0.014);
+
+      const routePoints = Array.from({ length: 190 }, (_, index) =>
+        greatCirclePoint(startSurface, endSurface, index / 189, globeRadius)
+      );
+      const routeCurve = new THREE.CatmullRomCurve3(routePoints, false, "catmullrom", 0.12);
+      const routeShadowTube = new THREE.Mesh(
+        new THREE.TubeGeometry(routeCurve, 150, 0.030, 14, false),
+        new THREE.MeshBasicMaterial({
+          color: 0x102438,
+          transparent: true,
+          opacity: 0.30,
+          depthWrite: false,
+          depthTest: true,
+        })
+      );
+      routeShadowTube.renderOrder = 8;
+      trackingLayer.add(routeShadowTube);
+
+      const routeTube = new THREE.Mesh(
+        new THREE.TubeGeometry(routeCurve, 150, 0.014, 14, false),
+        new THREE.MeshBasicMaterial({
+          color: 0x9fe8ff,
+          transparent: true,
+          opacity: 0.50,
+          depthWrite: false,
+          depthTest: true,
+        })
+      );
+      routeTube.renderOrder = 9;
+      trackingLayer.add(routeTube);
+
+      function makeTravelledCurve(amount) {
+        const clamped = THREE.MathUtils.clamp(amount, 0.015, 1);
+        const count = Math.max(2, Math.round(routePoints.length * clamped));
+        return new THREE.CatmullRomCurve3(routePoints.slice(0, count), false, "catmullrom", 0.12);
+      }
+
+      const travelledCurve = makeTravelledCurve(0.02);
+      const travelledShadowLine = new THREE.Mesh(
+        new THREE.TubeGeometry(travelledCurve, 90, 0.050, 16, false),
+        new THREE.MeshBasicMaterial({
+          color: 0x4dc6ff,
+          transparent: true,
+          opacity: 0.24,
+          depthWrite: false,
+          depthTest: true,
+        })
+      );
+      travelledShadowLine.renderOrder = 10;
+      trackingLayer.add(travelledShadowLine);
+
+      const travelledLine = new THREE.Mesh(
+        new THREE.TubeGeometry(travelledCurve, 90, 0.023, 16, false),
+        new THREE.MeshBasicMaterial({
+          color: 0xe9fbff,
+          transparent: true,
+          opacity: 0.98,
+          depthWrite: false,
+          depthTest: true,
+        })
+      );
+      travelledLine.renderOrder = 11;
+      trackingLayer.add(travelledLine);
+
+      const routePulse = new THREE.Mesh(
+        new THREE.SphereGeometry(0.055, 24, 24),
+        new THREE.MeshBasicMaterial({
+          color: 0xffffff,
+          transparent: true,
+          opacity: 0.90,
+          depthWrite: false,
+          depthTest: true,
+        })
+      );
+      routePulse.renderOrder = 12;
+      routePulse.scale.set(1.25, 1.25, 0.55);
+      trackingLayer.add(routePulse);
+
+      const routePulseGlow = new THREE.PointLight(0xbdeeff, 1.75, 1.05);
+      routePulse.add(routePulseGlow);
+
+      let renderedRouteAmount = 0.02;
+      function updateTravelledRoute(amount) {
+        const clamped = THREE.MathUtils.clamp(amount, 0.015, 1);
+        if (Math.abs(clamped - renderedRouteAmount) < 0.006) return;
+        renderedRouteAmount = clamped;
+        const curve = makeTravelledCurve(clamped);
+        travelledShadowLine.geometry.dispose();
+        travelledLine.geometry.dispose();
+        travelledShadowLine.geometry = new THREE.TubeGeometry(curve, 90, 0.050, 16, false);
+        travelledLine.geometry = new THREE.TubeGeometry(curve, 90, 0.023, 16, false);
+      }
+
+      function makePin(color = 0xffffff, size = 0.025) {
+        const pin = new THREE.Mesh(
+          new THREE.SphereGeometry(size, 24, 24),
+          new THREE.MeshBasicMaterial({ color })
+        );
+        return pin;
+      }
+      const originPin = makePin(0xffffff, 0.027);
+      originPin.position.copy(startSurface.clone().normalize().multiplyScalar(globeRadius * 1.014));
+      trackingLayer.add(originPin);
+
+      const destinationAnchor = new THREE.Object3D();
+      destinationAnchor.position.copy(endSurface.clone().multiplyScalar(1.006));
+      trackingLayer.add(destinationAnchor);
+
+      const destinationQuaternion = yawQuaternionForFocus(endSurface.clone().normalize());
+      const originQuaternion = yawQuaternionForFocus(startSurface.clone().normalize());
+
+      function makeWavedFlagGeometry(width, height, yOffset = 0) {
+        const segmentsX = 9;
+        const segmentsY = 3;
+        const positions = [];
+        const normals = [];
+        const uvs = [];
+        const indices = [];
+        for (let y = 0; y <= segmentsY; y += 1) {
+          for (let x = 0; x <= segmentsX; x += 1) {
+            const u = x / segmentsX;
+            const v = y / segmentsY;
+            const px = u * width;
+            const py = yOffset + (0.5 - v) * height;
+            const pz = Math.sin(u * Math.PI * 2.15) * 0.012 * (0.25 + u);
+            positions.push(px, py, pz);
+            normals.push(0, 0, 1);
+            uvs.push(u, v);
+          }
+        }
+        const row = segmentsX + 1;
+        for (let y = 0; y < segmentsY; y += 1) {
+          for (let x = 0; x < segmentsX; x += 1) {
+            const a = y * row + x;
+            const b = a + row;
+            indices.push(a, b, a + 1, b, b + 1, a + 1);
+          }
+        }
+        const geometry = new THREE.BufferGeometry();
+        geometry.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+        geometry.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+        geometry.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2));
+        geometry.setIndex(indices);
+        geometry.computeVertexNormals();
+        return geometry;
+      }
+
+      function makeStarMesh(size, depth, color) {
+        const shape = new THREE.Shape();
+        const points = 5;
+        const inner = size * 0.42;
+        for (let i = 0; i < points * 2; i += 1) {
+          const radius = i % 2 === 0 ? size : inner;
+          const angle = -Math.PI / 2 + (i * Math.PI) / points;
+          const x = Math.cos(angle) * radius;
+          const y = Math.sin(angle) * radius;
+          if (i === 0) shape.moveTo(x, y);
+          else shape.lineTo(x, y);
+        }
+        shape.closePath();
+        return new THREE.Mesh(
+          new THREE.ExtrudeGeometry(shape, {
+            depth,
+            bevelEnabled: true,
+            bevelSize: depth * 0.35,
+            bevelThickness: depth * 0.35,
+            bevelSegments: 1,
+          }),
+          new THREE.MeshStandardMaterial({
+            color,
+            roughness: 0.46,
+            metalness: 0.08,
+            emissive: color,
+            emissiveIntensity: 0.06,
+          })
+        );
+      }
+
+      function makeFlagCloth(kind) {
+        const group = new THREE.Group();
+        const width = 0.238;
+        const height = 0.150;
+        const clothMaterial = (color) => new THREE.MeshStandardMaterial({
+          color,
+          roughness: 0.54,
+          metalness: 0.02,
+          side: THREE.FrontSide,
+          depthTest: true,
+          depthWrite: true,
+          emissive: color,
+          emissiveIntensity: 0.025,
+        });
+        const addFrame = () => {
+          const frame = new THREE.LineSegments(
+            new THREE.EdgesGeometry(makeWavedFlagGeometry(width, height)),
+            new THREE.LineBasicMaterial({
+              color: 0xf3fbff,
+              transparent: true,
+              opacity: 0.36,
+              depthTest: true,
+              depthWrite: false,
+            })
+          );
+          frame.position.z = 0.018;
+          group.add(frame);
+        };
+
+        if (kind === "china") {
+          const cloth = new THREE.Mesh(makeWavedFlagGeometry(width, height), clothMaterial(0xde2910));
+          const star = makeStarMesh(0.027, 0.006, 0xffde00);
+          star.position.set(width * 0.24, height * 0.21, 0.014);
+          star.rotation.z = -0.08;
+          group.add(cloth, star);
+        } else {
+          const stripeHeight = height / 3;
+          const top = new THREE.Mesh(makeWavedFlagGeometry(width, stripeHeight, stripeHeight), clothMaterial(0x74acdf));
+          const mid = new THREE.Mesh(makeWavedFlagGeometry(width, stripeHeight, 0), clothMaterial(0xffffff));
+          const bottom = new THREE.Mesh(makeWavedFlagGeometry(width, stripeHeight, -stripeHeight), clothMaterial(0x74acdf));
+          const sun = new THREE.Mesh(
+            new THREE.SphereGeometry(0.020, 16, 8),
+            new THREE.MeshStandardMaterial({
+            color: 0xf6b40e,
+            roughness: 0.42,
+            metalness: 0.06,
+            emissive: 0xf6b40e,
+            emissiveIntensity: 0.08,
+            depthTest: true,
+            depthWrite: true,
+          })
+        );
+          sun.scale.set(1, 1, 0.28);
+          sun.position.set(width * 0.50, 0, 0.016);
+          group.add(top, mid, bottom, sun);
+        }
+        addFrame();
+        return group;
+      }
+
+      function makeFlag(surfacePoint, kind, focusQuaternion) {
+        const normal = surfacePoint.clone().normalize();
+        const group = new THREE.Group();
+        group.position.copy(normal.clone().multiplyScalar(globeRadius * 1.046));
+        const viewDirection = new THREE.Vector3(0, 0, 1)
+          .applyQuaternion(focusQuaternion.clone().invert())
+          .projectOnPlane(normal)
+          .normalize();
+        if (viewDirection.lengthSq() < 0.0001) viewDirection.set(0, 0, 1).projectOnPlane(normal).normalize();
+        const xAxis = new THREE.Vector3().crossVectors(normal, viewDirection).normalize();
+        const zAxis = new THREE.Vector3().crossVectors(xAxis, normal).normalize();
+        group.quaternion.setFromRotationMatrix(new THREE.Matrix4().makeBasis(xAxis, normal, zAxis));
+
+        const mast = new THREE.Mesh(
+          new THREE.CylinderGeometry(0.006, 0.0075, 0.34, 10),
+          new THREE.MeshStandardMaterial({
+            color: 0xeef8ff,
+            roughness: 0.38,
+            metalness: 0.22,
+          })
+        );
+        mast.position.y = 0.162;
+
+        const banner = makeFlagCloth(kind);
+        banner.position.set(0.010, 0.300, 0.024);
+        banner.rotation.y = THREE.MathUtils.degToRad(-18);
+
+        const flagGlow = new THREE.Mesh(
+          new THREE.SphereGeometry(0.040, 18, 18),
+          new THREE.MeshBasicMaterial({
+            color: kind === "china" ? 0xffd15a : 0x82d8ff,
+            transparent: true,
+            opacity: 0.26,
+            depthTest: true,
+            depthWrite: true,
+          })
+        );
+        flagGlow.position.y = 0.006;
+
+        group.add(mast, banner, flagGlow);
+        trackingLayer.add(group);
+        return { group, banner };
+      }
+
+      const originFlag = makeFlag(startSurface, "china", originQuaternion);
+      const destinationFlag = makeFlag(endSurface, "argentina", destinationQuaternion);
+      const trackingFlags = [originFlag, destinationFlag];
+
+      const debugOverlays = [];
+      if (debugMode) {
+        debugHud.hidden = false;
+        debugHud.innerHTML = [
+          "Modo calibracion",
+          `coord=${calibration.mode}`,
+          `lngOffset=${calibration.lngOffset}`,
+          "base=geographic-earth-texture",
+          "Probar coord=real, invertLng, flipZ, flipX, flipBoth, swapXZ, swapNeg"
+        ].join("<br>");
+
+        const debugColors = [0x2f8cff, 0xffffff, 0xffd166, 0xff6b6b, 0x9bffb0, 0xd78cff];
+        debugCities.forEach((city, index) => {
+          const marker = makePin(debugColors[index % debugColors.length], 0.022);
+          marker.position.copy(latLngToVector3(city.lat, city.lng, globeRadius * 1.026));
+          trackingLayer.add(marker);
+
+          const label = document.createElement("div");
+          label.className = "debug-label";
+          label.textContent = `${city.name} ${city.country}`;
+          map.appendChild(label);
+          debugOverlays.push({ marker, label });
+        });
+      }
+
+      const plane = new THREE.Group();
+      const planeBodyMaterial = new THREE.MeshStandardMaterial({
+        color: 0xffffff,
+        roughness: 0.36,
+        metalness: 0.18,
+        emissive: 0x171717,
+        emissiveIntensity: 0.03,
+      });
+      const planeShadowMaterial = new THREE.MeshBasicMaterial({
+        color: 0x8fc8ff,
+        transparent: true,
+        opacity: 0.16,
+        depthWrite: false,
+      });
+      const planeShape = new THREE.Shape();
+      planeShape.moveTo(0.125, 0.000);
+      planeShape.bezierCurveTo(0.090, 0.020, 0.045, 0.026, 0.014, 0.025);
+      planeShape.lineTo(-0.020, 0.145);
+      planeShape.bezierCurveTo(-0.024, 0.158, -0.043, 0.156, -0.046, 0.140);
+      planeShape.lineTo(-0.040, 0.026);
+      planeShape.lineTo(-0.094, 0.020);
+      planeShape.lineTo(-0.128, 0.072);
+      planeShape.bezierCurveTo(-0.135, 0.082, -0.150, 0.077, -0.148, 0.062);
+      planeShape.lineTo(-0.132, 0.000);
+      planeShape.lineTo(-0.148, -0.062);
+      planeShape.bezierCurveTo(-0.150, -0.077, -0.135, -0.082, -0.128, -0.072);
+      planeShape.lineTo(-0.094, -0.020);
+      planeShape.lineTo(-0.040, -0.026);
+      planeShape.lineTo(-0.046, -0.140);
+      planeShape.bezierCurveTo(-0.043, -0.156, -0.024, -0.158, -0.020, -0.145);
+      planeShape.lineTo(0.014, -0.025);
+      planeShape.bezierCurveTo(0.045, -0.026, 0.090, -0.020, 0.125, 0.000);
+      const planeIcon = new THREE.Mesh(
+        new THREE.ExtrudeGeometry(planeShape, {
+          depth: 0.014,
+          bevelEnabled: true,
+          bevelSize: 0.004,
+          bevelThickness: 0.004,
+          bevelSegments: 2,
+        }),
+        planeBodyMaterial
+      );
+      planeIcon.position.z = 0.006;
+      const halo = new THREE.Mesh(new THREE.SphereGeometry(0.105, 32, 32), planeShadowMaterial);
+      halo.scale.set(1.25, 0.58, 0.10);
+      plane.add(halo, planeIcon);
+      plane.scale.setScalar(0.92);
+      plane.visible = false;
+
+      let currentTourQuaternion = destinationQuaternion.clone();
+      globeGroup.quaternion.copy(destinationQuaternion);
+
+      const interactionQuat = new THREE.Quaternion();
+      const targetInteractionQuat = new THREE.Quaternion();
+      let lastPointerX = 0;
+      let lastPointerY = 0;
+      let returningHome = false;
+      let pointerActive = false;
+      let autoTourTime = 0;
+      let lastFrameTime = performance.now();
+      let autoResumeAt = 0;
+
+      function easeInOut(t) {
+        const x = THREE.MathUtils.clamp(t, 0, 1);
+        return x * x * (3 - 2 * x);
+      }
+
+      function easeOutQuart(t) {
+        const x = 1 - THREE.MathUtils.clamp(t, 0, 1);
+        return 1 - x * x * x * x;
+      }
+
+      function easeOutExpo(t) {
+        const x = THREE.MathUtils.clamp(t, 0, 1);
+        return x === 1 ? 1 : 1 - Math.pow(2, -10 * x);
+      }
+
+      function delayedProgress(value, start, end, easing = easeOutQuart) {
+        return easing((value - start) / (end - start));
+      }
+
+      function slerpedQuaternion(from, to, amount) {
+        return from.clone().slerp(to, easeInOut(amount));
+      }
+
+      function repeatedRouteProgress(localSeconds, duration) {
+        const raw = (localSeconds % duration) / duration;
+        return easeInOut(raw);
+      }
+
+      function getTourState(seconds) {
+        const cycle = seconds % 28;
+        if (cycle < 2) {
+          const p = repeatedRouteProgress(cycle, 3.4);
+          return { camera: destinationQuaternion, routeAmount: p, lightT: p, lightVisible: true, boost: 0.06, routeFade: 0.78 };
+        }
+        if (cycle < 5.5) {
+          const p = repeatedRouteProgress(cycle - 2, 3.5);
+          return { camera: destinationQuaternion, routeAmount: p, lightT: p, lightVisible: true, boost: 0.08, routeFade: 0.88 };
+        }
+        if (cycle < 10) {
+          const p = (cycle - 5.5) / 4.5;
+          const travel = repeatedRouteProgress(cycle - 5.5, 3.8);
+          return {
+            camera: slerpedQuaternion(destinationQuaternion, originQuaternion, p),
+            routeAmount: travel,
+            lightT: travel,
+            lightVisible: true,
+            boost: 0.06,
+            routeFade: 0.82,
+          };
+        }
+        if (cycle < 18.5) {
+          const p = easeInOut((cycle - 10) / 8.5);
+          return {
+            camera: slerpedQuaternion(originQuaternion, destinationQuaternion, p),
+            routeAmount: p,
+            lightT: p,
+            lightVisible: true,
+            boost: 0.12,
+            routeFade: 1,
+          };
+        }
+        if (cycle < 26) {
+          const p = repeatedRouteProgress(cycle - 18.5, 3.6);
+          return { camera: destinationQuaternion, routeAmount: p, lightT: p, lightVisible: true, boost: 0.08, routeFade: 0.90 };
+        }
+        const p = repeatedRouteProgress(cycle - 26, 2);
+        return {
+          camera: destinationQuaternion,
+          routeAmount: p,
+          lightT: p,
+          lightVisible: true,
+          boost: 0.05,
+          routeFade: 0.78,
+        };
+      }
+
+      function routePointAt(t) {
+        const index = THREE.MathUtils.clamp(t, 0, 1) * (routePoints.length - 1);
+        const low = Math.floor(index);
+        const high = Math.min(routePoints.length - 1, low + 1);
+        const localT = index - low;
+        return routePoints[low].clone().lerp(routePoints[high], localT);
+      }
+
+      function positionPlane(t) {
+        const p = routePointAt(t);
+        const p2 = routePointAt(Math.min(1, t + 0.01));
+        plane.position.copy(p);
+
+        const normal = p.clone().normalize();
+        const tangent = p2.clone().sub(p).normalize();
+        const binormal = new THREE.Vector3().crossVectors(normal, tangent).normalize();
+        const matrix = new THREE.Matrix4().makeBasis(tangent, binormal, normal);
+        plane.quaternion.setFromRotationMatrix(matrix);
+      }
+
+      function getGlobeScreenMetrics() {
+        const rect = map.getBoundingClientRect();
+        const centerWorld = globeGroup.getWorldPosition(new THREE.Vector3());
+        const centerProjected = centerWorld.clone().project(camera);
+        const center = {
+          x: (centerProjected.x * 0.5 + 0.5) * rect.width,
+          y: (-centerProjected.y * 0.5 + 0.5) * rect.height,
+        };
+        const edgeWorld = globeGroup.localToWorld(new THREE.Vector3(globeRadius, 0, 0));
+        const edgeProjected = edgeWorld.project(camera);
+        const edge = {
+          x: (edgeProjected.x * 0.5 + 0.5) * rect.width,
+          y: (-edgeProjected.y * 0.5 + 0.5) * rect.height,
+        };
+        return {
+          center,
+          radius: Math.max(120, Math.hypot(edge.x - center.x, edge.y - center.y)),
+        };
+      }
+
+      function toScreenPosition(object3D) {
+        object3D.updateWorldMatrix(true, false);
+        const world = object3D.getWorldPosition(new THREE.Vector3());
+        const cameraDirection = camera.position.clone().sub(world).normalize();
+        const surfaceNormal = world.clone().sub(globeGroup.getWorldPosition(new THREE.Vector3())).normalize();
+        const facingCamera = surfaceNormal.dot(cameraDirection) > -0.08;
+        const vector = world.clone().project(camera);
+        const rect = map.getBoundingClientRect();
+        return {
+          x: (vector.x * 0.5 + 0.5) * rect.width,
+          y: (-vector.y * 0.5 + 0.5) * rect.height,
+          visible: vector.z < 1 && facingCamera,
+          edge: vector.z < 1 && !facingCamera,
+        };
+      }
+
+      function toEdgeAwareScreenPosition(object3D) {
+        const pos = toScreenPosition(object3D);
+        if (!pos.edge) return pos;
+
+        const { center, radius } = getGlobeScreenMetrics();
+        let dx = pos.x - center.x;
+        let dy = pos.y - center.y;
+        const length = Math.hypot(dx, dy);
+        if (length < 4) {
+          object3D.updateWorldMatrix(true, false);
+          const world = object3D.getWorldPosition(new THREE.Vector3()).sub(globeGroup.getWorldPosition(new THREE.Vector3()));
+          dx = world.x;
+          dy = -world.y;
+        }
+        const normal = Math.hypot(dx, dy) || 1;
+        const edgeRadius = radius * 0.92;
+        return {
+          ...pos,
+          x: center.x + (dx / normal) * edgeRadius,
+          y: center.y + (dy / normal) * edgeRadius,
+        };
+      }
+
+      function setOverlayPosition(el, pos, options = {}) {
+        const rect = map.getBoundingClientRect();
+        const marginX = options.clamp ? 88 : 0;
+        const marginY = options.clamp ? 52 : 0;
+        const x = options.clamp ? THREE.MathUtils.clamp(pos.x, marginX, rect.width - marginX) : pos.x;
+        const y = options.clamp ? THREE.MathUtils.clamp(pos.y, marginY, rect.height - marginY) : pos.y;
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
+        el.classList.toggle("hidden", !pos.visible);
+        el.classList.toggle("visible", pos.visible);
+      }
+
+      function setCityOverlayPosition(el, pos) {
+        const rect = map.getBoundingClientRect();
+        const marginX = 88;
+        const marginY = 52;
+        const x = THREE.MathUtils.clamp(pos.x, marginX, rect.width - marginX);
+        const y = THREE.MathUtils.clamp(pos.y, marginY, rect.height - marginY);
+        const show = pos.visible || pos.edge;
+        el.style.left = `${x}px`;
+        el.style.top = `${y}px`;
+        el.classList.toggle("hidden", !show);
+        el.classList.toggle("visible", show);
+        el.classList.toggle("edge", !pos.visible && pos.edge);
+      }
+
+      function updateOverlays() {
+        const origin = toEdgeAwareScreenPosition(originPin);
+        const dest = toEdgeAwareScreenPosition(destinationAnchor);
+        setCityOverlayPosition(originLabel, { ...origin, y: origin.y - 34 });
+        setCityOverlayPosition(destLabel, { ...dest, y: dest.y - 18 });
+        setOverlayPosition(locationDot, dest);
+        debugOverlays.forEach(({ marker, label }) => {
+          setOverlayPosition(label, toEdgeAwareScreenPosition(marker), { clamp: true });
+        });
+      }
+
+      function updateScreenRoute(origin, dest) {
+        const length = Math.hypot(dest.x - origin.x, dest.y - origin.y) || 1;
+        const progressX = origin.x + (dest.x - origin.x) * progress;
+        const progressY = origin.y + (dest.y - origin.y) * progress;
+        const pulseT = (performance.now() * 0.00018) % Math.max(progress, 0.08);
+        const pulseX = origin.x + (dest.x - origin.x) * pulseT;
+        const pulseY = origin.y + (dest.y - origin.y) * pulseT;
+
+        for (const line of [screenRouteBase, screenRouteProgress, screenRouteShimmer]) {
+          line.setAttribute("x1", origin.x.toFixed(2));
+          line.setAttribute("y1", origin.y.toFixed(2));
+          line.setAttribute("x2", dest.x.toFixed(2));
+          line.setAttribute("y2", dest.y.toFixed(2));
+        }
+        screenRouteProgress.setAttribute("x2", progressX.toFixed(2));
+        screenRouteProgress.setAttribute("y2", progressY.toFixed(2));
+        screenRouteProgress.style.strokeDasharray = `${length * progress} ${length}`;
+        screenRouteShimmer.style.strokeDasharray = `22 82`;
+        screenRoutePulse.setAttribute("cx", pulseX.toFixed(2));
+        screenRoutePulse.setAttribute("cy", pulseY.toFixed(2));
+        routeOverlay.style.opacity = origin.visible || origin.edge || dest.visible ? "1" : "0";
+      }
+
+      function resize() {
+        const rect = map.getBoundingClientRect();
+        const desktopLayout = matchMedia("(min-width: 900px)").matches;
+        renderer.setSize(rect.width, rect.height, false);
+        camera.aspect = rect.width / rect.height;
+        camera.fov = desktopLayout ? 39 : rect.width < 430 ? 45 : 40;
+        camera.position.x = desktopLayout ? -0.36 : 0;
+        camera.position.z = desktopLayout ? 6.15 : rect.width < 430 ? 6.55 : 6.18;
+        camera.position.y = desktopLayout ? 0.02 : 0.08;
+        camera.updateProjectionMatrix();
+      }
+
+      function applySheetCameraMotion() {
+        const mobileLayout = map.clientWidth < 700;
+        const desktopLayout = matchMedia("(min-width: 900px)").matches;
+        const baseFov = desktopLayout ? 39 : mobileLayout ? 45 : 40;
+        const baseZ = desktopLayout ? 6.15 : mobileLayout ? 6.55 : 6.18;
+        const baseY = desktopLayout ? 0.02 : 0.08;
+
+        const smooth = easeOutQuart(sheetProgress);
+        const drop = smooth * 0.72 + delayedProgress(sheetProgress, 0.00, 0.78, easeOutQuart) * 0.28;
+        const zoom = smooth * 0.30 + delayedProgress(sheetProgress, 0.18, 1.00, easeOutExpo) * 0.70;
+        camera.position.x = desktopLayout ? -0.36 : 0;
+        camera.position.z = baseZ - zoom * (mobileLayout ? 1.62 : 0.66);
+        camera.position.y = baseY + zoom * (mobileLayout ? 0.075 : 0.028);
+        camera.fov = baseFov - zoom * (mobileLayout ? 5.8 : 2.4);
+        camera.updateProjectionMatrix();
+
+        globeGroup.scale.setScalar(1 + zoom * (mobileLayout ? 0.045 : 0.018));
+        globeGroup.position.y = mobileLayout
+          ? -(drop * 0.70 + zoom * 0.20)
+          : -(drop * 0.19 + zoom * 0.05);
+        globeGroup.position.x = desktopLayout ? 0.58 : 0;
+      }
+
+      function animateProgressBar() {
+        const pct = Math.round(progress * 100);
+        document.getElementById("fill").style.width = `${pct}%`;
+        const pctText = document.getElementById("pctText");
+        let n = 0;
+        const timer = setInterval(() => {
+          n += 1;
+          pctText.innerHTML = `${n}<span>%</span>`;
+          if (n >= pct) clearInterval(timer);
+        }, 1200 / Math.max(1, pct));
+      }
+
+      const COLLAPSED = 66;
+      const EXPANDED = 34;
+      let sheetState = "collapsed";
+      let dragging = false;
+      let moved = false;
+      let startY = 0;
+      let startPct = COLLAPSED;
+      let stageHeight = 1;
+      let sheetProgress = 0;
+      let targetSheetProgress = 0;
+
+      function setSheetPct(p) {
+        const desktop = matchMedia("(min-width: 900px)").matches;
+        sheet.style.transform = desktop ? `translate(-50%, ${p}%)` : `translateY(${p}%)`;
+        targetSheetProgress = THREE.MathUtils.clamp((COLLAPSED - p) / (COLLAPSED - EXPANDED), 0, 1);
+      }
+
+      function snap(next) {
+        sheetState = next;
+        sheet.style.transition = "transform 0.96s cubic-bezier(0.19, 1, 0.22, 1)";
+        sheet.style.transform = "";
+        sheet.classList.toggle("expanded", next === "expanded");
+        targetSheetProgress = next === "expanded" ? 1 : 0;
+        if (next === "collapsed") {
+          sheetContent.scrollTo({ top: 0, behavior: "auto" });
+        }
+      }
+
+      sheet.addEventListener("transitionend", (event) => {
+        if (event.propertyName !== "transform" || sheetState !== "collapsed") return;
+        sheetContent.scrollTo({ top: 0, behavior: "auto" });
+      });
+
+      function onGrabDown(e) {
+        dragging = true;
+        moved = false;
+        stageHeight = stage.clientHeight;
+        startY = e.touches ? e.touches[0].clientY : e.clientY;
+        startPct = sheetState === "expanded" ? EXPANDED : COLLAPSED;
+        sheet.style.transition = "none";
+        e.preventDefault();
+      }
+
+      function onGrabMove(e) {
+        if (!dragging) return;
+        const y = e.touches ? e.touches[0].clientY : e.clientY;
+        if (Math.abs(y - startY) > 5) moved = true;
+        const next = Math.max(EXPANDED, Math.min(COLLAPSED, startPct + ((y - startY) / stageHeight) * 100));
+        setSheetPct(next);
+      }
+
+      function onGrabUp(e) {
+        if (!dragging) return;
+        dragging = false;
+        if (!moved) {
+          snap(sheetState === "collapsed" ? "expanded" : "collapsed");
+          return;
+        }
+        const y = e.changedTouches ? e.changedTouches[0].clientY : e.clientY;
+        const pct = startPct + ((y - startY) / stageHeight) * 100;
+        snap(pct < (COLLAPSED + EXPANDED) / 2 ? "expanded" : "collapsed");
+      }
+
+      map.addEventListener("pointerdown", (e) => {
+        pointerActive = true;
+        returningHome = false;
+        autoResumeAt = performance.now() + 4200;
+        lastPointerX = e.clientX;
+        lastPointerY = e.clientY;
+        map.setPointerCapture(e.pointerId);
+      });
+      map.addEventListener("pointerup", () => {
+        pointerActive = false;
+        returningHome = true;
+        autoResumeAt = performance.now() + 4200;
+      });
+      map.addEventListener("pointercancel", () => {
+        pointerActive = false;
+        returningHome = true;
+        autoResumeAt = performance.now() + 4200;
+      });
+      map.addEventListener("pointermove", (e) => {
+        if (!pointerActive) return;
+        const dx = e.clientX - lastPointerX;
+        const dy = e.clientY - lastPointerY;
+        lastPointerX = e.clientX;
+        lastPointerY = e.clientY;
+
+        const rotateY = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), dx * 0.0085);
+        const rotateX = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), dy * 0.0085);
+        targetInteractionQuat.premultiply(rotateY);
+        targetInteractionQuat.premultiply(rotateX);
+      });
+
+      grab.addEventListener("mousedown", onGrabDown);
+      grab.addEventListener("touchstart", onGrabDown, { passive: false });
+      window.addEventListener("mousemove", onGrabMove);
+      window.addEventListener("touchmove", onGrabMove, { passive: false });
+      window.addEventListener("mouseup", onGrabUp);
+      window.addEventListener("touchend", onGrabUp);
+      grab.addEventListener("click", (e) => e.preventDefault());
+      window.addEventListener("resize", resize);
+
+      resize();
+      animateProgressBar();
+
+      let startTime = performance.now();
+      function tick(now) {
+        const delta = Math.min(0.05, Math.max(0, (now - lastFrameTime) / 1000));
+        lastFrameTime = now;
+        const t = (now - startTime) / 1000;
+        const tourPaused = pointerActive || returningHome || now < autoResumeAt;
+        if (!tourPaused) autoTourTime += delta;
+        const tourState = getTourState(autoTourTime);
+
+        sheetProgress += (targetSheetProgress - sheetProgress) * 0.08;
+        const drift = Math.sin(t * 0.38) * 0.008;
+        if (returningHome) {
+          targetInteractionQuat.slerp(new THREE.Quaternion(), 0.035);
+          if (targetInteractionQuat.angleTo(new THREE.Quaternion()) < 0.003) {
+            targetInteractionQuat.identity();
+            returningHome = false;
+          }
+        }
+        interactionQuat.slerp(targetInteractionQuat, pointerActive ? 0.22 : 0.075);
+
+        currentTourQuaternion.slerp(tourPaused ? destinationQuaternion : tourState.camera, 0.035);
+        const q = currentTourQuaternion.clone();
+        q.multiply(interactionQuat);
+        q.multiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(0, drift, 0, "XYZ")));
+        globeGroup.quaternion.copy(q);
+        applySheetCameraMotion();
+
+        const routeAmount = tourPaused ? progress : tourState.routeAmount;
+        updateTravelledRoute(routeAmount);
+        const lightT = THREE.MathUtils.clamp(tourPaused ? progress : tourState.lightT, 0.02, 1);
+        routePulse.position.copy(routePointAt(lightT));
+        const lightScale = 0.98 + (tourState.boost || 0) * 0.25;
+        routePulse.scale.setScalar(lightScale);
+        routePulse.visible = !tourPaused && tourState.lightVisible;
+        travelledLine.material.opacity = Math.min(1, (tourState.routeFade || 0.8) * (0.80 + (tourState.boost || 0)));
+        travelledShadowLine.material.opacity = Math.min(0.38, (tourState.routeFade || 0.8) * (0.22 + (tourState.boost || 0) * 0.35));
+        routeTube.material.opacity = 0.34 + Math.sin(t * 1.6) * 0.05;
+        routeShadowTube.material.opacity = 0.20 + Math.sin(t * 1.6) * 0.03;
+
+        renderer.render(scene, camera);
+        updateOverlays();
+        requestAnimationFrame(tick);
+      }
+      requestAnimationFrame(tick);
+    </script>
+  </body>
+</html>
+
+
+
+
+
