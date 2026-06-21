@@ -1,6 +1,7 @@
 import type { OrderStatus } from "@prisma/client";
 import { ORDER_STATUS_META } from "@/shared/config/order-status";
 import { Badge } from "./badge";
+import { cn } from "@/shared/lib/utils";
 
 type Tone = "neutral" | "blue" | "amber" | "green" | "red" | "violet";
 
@@ -21,6 +22,21 @@ export function orderStatusLabel(status: OrderStatus): string {
   return ORDER_STATUS_META[status].label;
 }
 
-export function OrderStatusBadge({ status }: { status: OrderStatus }) {
-  return <Badge tone={TONE[status]}>{orderStatusLabel(status)}</Badge>;
+export function OrderStatusBadge({
+  status,
+  appearance = "default",
+  className,
+}: {
+  status: OrderStatus;
+  appearance?: "default" | "portal";
+  className?: string;
+}) {
+  return (
+    <Badge
+      tone={TONE[status]}
+      className={cn(appearance === "portal" && "portal-status-badge", className)}
+    >
+      {orderStatusLabel(status)}
+    </Badge>
+  );
 }

@@ -10,7 +10,7 @@ import { Input, Label, FieldError } from "@/shared/ui/field";
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" size="lg" className="w-full" disabled={pending}>
+    <Button type="submit" size="lg" className="public-submit" disabled={pending}>
       {pending ? "Enviando…" : "Enviar enlace"}
     </Button>
   );
@@ -20,19 +20,19 @@ export function ResetForm() {
   const [state, formAction] = useActionState<ActionState, FormData>(requestResetAction, {});
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="public-form">
       <div>
-        <Label htmlFor="email">Email</Label>
-        <Input id="email" name="email" type="email" autoComplete="email" required />
+        <Label htmlFor="email" className="public-field-label">Email</Label>
+        <Input className="public-input" id="email" name="email" type="email" autoComplete="email" required />
       </div>
 
-      <FieldError>{state.error}</FieldError>
-      {state.message && <p className="text-sm text-green-700">{state.message}</p>}
+      <FieldError className="public-error">{state.error}</FieldError>
+      {state.message && <p className="public-success">{state.message}</p>}
 
       <SubmitButton />
 
-      <p className="text-center text-sm text-slate-500">
-        <Link href="/login" className="text-slate-700 underline">
+      <p className="public-link-row">
+        <Link href="/login" className="public-link underline">
           Volver a iniciar sesión
         </Link>
       </p>

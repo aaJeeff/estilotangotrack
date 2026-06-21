@@ -12,6 +12,9 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Local visual-review and brainstorming artifacts are not application source.
+    ".tmp-chrome-*/**",
+    ".superpowers/**",
   ]),
 ]);
 

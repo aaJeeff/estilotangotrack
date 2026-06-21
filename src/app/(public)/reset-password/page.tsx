@@ -5,8 +5,9 @@ export const metadata = { title: "Restablecer contraseña — Camisetas" };
 export default function ResetPasswordPage() {
   return (
     <div>
-      <h2 className="mb-1 text-lg font-semibold text-slate-900">Restablecer contraseña</h2>
-      <p className="mb-5 text-sm text-slate-500">
+      <p className="portal-eyebrow mb-3 text-center">Acceso</p>
+      <h1 className="public-title">Restablecer contraseña</h1>
+      <p className="public-copy">
         Ingresá tu email y te enviaremos un enlace para crear una nueva contraseña.
       </p>
       <ResetForm />

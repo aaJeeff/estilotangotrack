@@ -23,7 +23,9 @@
 # misc
 .DS_Store
 *.pem
+/.superpowers/
 .tmp-chrome-*
+.tmp-dev-server.*.log
 concept/*-preview.png
 
 # debug

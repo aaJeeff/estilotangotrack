@@ -4,6 +4,7 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <title>Seguimiento · Globo 3D conceptual</title>
+    <link href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css" rel="stylesheet" />
     <style>
       :root {
         --ink: #f8fafc;
@@ -100,6 +101,416 @@
         z-index: 0;
       }
 
+      .local-map {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        display: none;
+        overflow: hidden;
+        perspective: 1200px;
+        color: rgba(244, 249, 255, 0.92);
+        background:
+          radial-gradient(780px 520px at 28% 18%, rgba(229, 241, 235, 0.18), transparent 64%),
+          radial-gradient(680px 460px at 70% 64%, rgba(61, 137, 205, 0.12), transparent 68%),
+          linear-gradient(128deg, #8fb295 0%, #6f9b83 34%, #587f78 58%, #315d72 80%, #09233b 100%);
+      }
+      .real-map {
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        display: none;
+        overflow: hidden;
+        background:
+          radial-gradient(820px 520px at 70% 68%, rgba(18, 64, 96, 0.42), transparent 68%),
+          linear-gradient(135deg, #8aa58f 0%, #6b967e 34%, #527f7c 62%, #173f62 100%);
+      }
+      .real-atmosphere {
+        position: absolute;
+        inset: -10%;
+        z-index: 4;
+        display: none;
+        pointer-events: none;
+        opacity: 0.12;
+        background:
+          linear-gradient(130deg, rgba(228, 244, 255, 0.18), transparent 42%, rgba(255, 255, 255, 0.08));
+        filter: blur(20px);
+        mix-blend-mode: screen;
+        animation: realCloudDrift 46s ease-in-out infinite alternate;
+      }
+      .real-map::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        pointer-events: none;
+        background:
+          radial-gradient(700px 420px at 18% 22%, rgba(255, 255, 255, 0.24), transparent 62%),
+          radial-gradient(720px 460px at 78% 72%, rgba(58, 143, 221, 0.18), transparent 68%),
+          linear-gradient(90deg, rgba(244, 248, 255, 0.12), transparent 32%, rgba(5, 16, 31, 0.18));
+        mix-blend-mode: screen;
+      }
+      .real-map::before {
+        content: "";
+        position: absolute;
+        inset: -18%;
+        z-index: 2;
+        pointer-events: none;
+        opacity: 0.22;
+        background:
+          radial-gradient(ellipse at 18% 34%, rgba(255, 255, 255, 0.30) 0 7%, transparent 24%),
+          radial-gradient(ellipse at 46% 58%, rgba(255, 255, 255, 0.18) 0 8%, transparent 28%),
+          radial-gradient(ellipse at 78% 28%, rgba(255, 255, 255, 0.16) 0 6%, transparent 22%);
+        filter: blur(22px);
+        mix-blend-mode: screen;
+        animation: realCloudDrift 42s ease-in-out infinite alternate;
+      }
+      .real-map .maplibregl-canvas {
+        outline: none;
+      }
+      .real-map .maplibregl-marker {
+        z-index: 3;
+      }
+      .real-map .real-cloud-host {
+        z-index: 2;
+        width: var(--cloud-width, 260px);
+        height: calc(var(--cloud-width, 260px) * 0.46);
+        opacity: var(--cloud-opacity, 0.22);
+        pointer-events: none;
+      }
+      .real-cloud-shape {
+        width: 100%;
+        height: 100%;
+        background:
+          radial-gradient(ellipse at 20% 58%, rgba(255, 255, 255, 0.74) 0 15%, transparent 43%),
+          radial-gradient(ellipse at 43% 42%, rgba(241, 249, 255, 0.82) 0 21%, transparent 51%),
+          radial-gradient(ellipse at 67% 56%, rgba(225, 241, 250, 0.62) 0 18%, transparent 47%),
+          radial-gradient(ellipse at 83% 62%, rgba(255, 255, 255, 0.46) 0 12%, transparent 39%);
+        filter: blur(11px);
+        mix-blend-mode: screen;
+        animation: realCloudMarkerFloat var(--cloud-duration, 58s) ease-in-out infinite alternate;
+        transform-origin: center;
+        will-change: transform, opacity;
+      }
+      .real-map .maplibregl-ctrl-bottom-left,
+      .real-map .maplibregl-ctrl-bottom-right {
+        opacity: 0.58;
+        transform: scale(0.82);
+        transform-origin: bottom right;
+      }
+      .real-map .maplibregl-ctrl-attrib {
+        color: rgba(5, 16, 30, 0.72);
+        background: rgba(255, 255, 255, 0.34);
+        border-radius: 999px 0 0 0;
+        backdrop-filter: blur(12px);
+        -webkit-backdrop-filter: blur(12px);
+      }
+      .real-city-marker {
+        position: relative;
+        width: 1px;
+        height: 1px;
+        pointer-events: none;
+      }
+      .real-city-marker .city-halo,
+      .real-city-marker .city-dot,
+      .real-city-marker .city-label {
+        position: absolute;
+        left: 50%;
+        top: 50%;
+        transform: translate(-50%, -50%);
+      }
+      .real-city-marker .city-halo {
+        width: 74px;
+        height: 74px;
+        border-radius: 999px;
+        background: radial-gradient(circle, rgba(255, 255, 255, 0.50) 0 8%, rgba(65, 172, 255, 0.44) 18%, rgba(65, 172, 255, 0.12) 46%, transparent 72%);
+        box-shadow: 0 0 42px rgba(53, 162, 255, 0.72);
+        animation: realCityPulse 3.8s ease-in-out infinite;
+      }
+      .real-city-marker .city-dot {
+        width: 18px;
+        height: 18px;
+        border-radius: 999px;
+        background: #ffffff;
+        border: 4px solid #2492ff;
+        box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.52), 0 0 28px rgba(43, 151, 255, 0.92);
+      }
+      .real-city-marker .city-label {
+        top: -118px;
+        padding: 9px 15px;
+        border-radius: 999px;
+        color: rgba(255, 255, 255, 0.96);
+        font-size: 14px;
+        font-weight: 790;
+        letter-spacing: -0.01em;
+        white-space: nowrap;
+        background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0.08));
+        border: 1px solid rgba(255, 255, 255, 0.22);
+        backdrop-filter: blur(26px) saturate(175%);
+        -webkit-backdrop-filter: blur(26px) saturate(175%);
+        box-shadow: 0 16px 36px rgba(0, 0, 0, 0.26), inset 0 1px 0 rgba(255, 255, 255, 0.28);
+        text-shadow: 0 1px 10px rgba(0, 0, 0, 0.32);
+      }
+      .real-city-marker.rosario .city-label {
+        top: -128px;
+      }
+      .real-city-marker.muted {
+        opacity: 0.42;
+      }
+      .real-city-marker.muted .city-halo {
+        animation: none;
+        opacity: 0.24;
+        box-shadow: 0 0 18px rgba(53, 162, 255, 0.22);
+      }
+      .real-city-marker.context {
+        opacity: 0.70;
+      }
+      .real-route-tag {
+        display: inline-flex;
+        align-items: center;
+        height: 30px;
+        padding: 0 12px;
+        border-radius: 999px;
+        color: rgba(255, 255, 255, 0.96);
+        font-size: 13px;
+        font-weight: 820;
+        background: linear-gradient(180deg, rgba(43, 145, 255, 0.94), rgba(24, 105, 232, 0.86));
+        border: 1px solid rgba(255, 255, 255, 0.34);
+        box-shadow: 0 12px 30px rgba(14, 86, 180, 0.34), 0 0 24px rgba(69, 171, 255, 0.32);
+      }
+      .local-map svg {
+        width: 112%;
+        height: 112%;
+        display: block;
+        transform: translate(-4.5%, -5.5%) rotateX(9deg) rotateZ(-0.5deg) scale(1.04);
+        transform-origin: 50% 56%;
+        filter: saturate(1.10) contrast(1.04);
+      }
+      .local-map::before {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 2;
+        pointer-events: none;
+        background:
+          radial-gradient(720px 460px at 31% 48%, rgba(255, 255, 255, 0.10), transparent 72%),
+          radial-gradient(760px 520px at 82% 58%, rgba(8, 35, 61, 0.30), transparent 70%),
+          linear-gradient(90deg, rgba(255, 255, 255, 0.04), transparent 36%, rgba(4, 17, 33, 0.20));
+      }
+      .local-map::after {
+        content: "";
+        position: absolute;
+        inset: 0;
+        z-index: 3;
+        pointer-events: none;
+        background:
+          linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 36%, rgba(3, 16, 28, 0.18)),
+          radial-gradient(900px 540px at 64% 40%, transparent 0 52%, rgba(4, 18, 34, 0.16) 100%);
+      }
+      .local-land {
+        fill: url(#localLandGradient);
+      }
+      .local-water {
+        fill: url(#localWaterGradient);
+      }
+      .local-river {
+        fill: none;
+        stroke: rgba(24, 91, 139, 0.44);
+        stroke-width: 2.2;
+        stroke-linecap: round;
+      }
+      .local-water-detail {
+        fill: none;
+        stroke: rgba(19, 58, 96, 0.34);
+        stroke-width: 1.2;
+        stroke-linecap: round;
+      }
+      .local-road {
+        fill: none;
+        stroke: rgba(236, 240, 232, 0.46);
+        stroke-width: 1.25;
+        stroke-linecap: round;
+        filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.24));
+      }
+      .local-road.major {
+        stroke: rgba(252, 251, 241, 0.72);
+        stroke-width: 2.4;
+      }
+      .local-boundary {
+        fill: none;
+        stroke: rgba(81, 72, 128, 0.34);
+        stroke-width: 1;
+        stroke-dasharray: 5 5;
+      }
+      .local-shield rect {
+        fill: rgba(235, 237, 232, 0.88);
+        stroke: rgba(30, 39, 49, 0.58);
+        stroke-width: 1.2;
+      }
+      .local-shield text {
+        fill: rgba(33, 42, 51, 0.88);
+        font-size: 13px;
+        font-weight: 820;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Arial, sans-serif;
+      }
+      .local-route-base,
+      .local-route-progress,
+      .local-route-shimmer {
+        fill: none;
+        stroke-linecap: round;
+        stroke-linejoin: round;
+      }
+      .local-route-base {
+        stroke: rgba(12, 24, 35, 0.30);
+        stroke-width: 13;
+        filter: url(#localRouteShadow);
+      }
+      .local-route-progress {
+        stroke: rgba(160, 222, 255, 0.96);
+        stroke-width: 6;
+        filter: url(#localBlueGlow);
+      }
+      .local-route-shimmer {
+        stroke: rgba(255, 255, 255, 0.96);
+        stroke-width: 3;
+        stroke-dasharray: 0.12 0.88;
+        filter: url(#localBlueGlow);
+        animation: localRouteFlow 6.8s cubic-bezier(0.33, 1, 0.68, 1) infinite;
+      }
+      .local-route-label text,
+      .local-place-label text,
+      .local-town text {
+        paint-order: stroke;
+        stroke: rgba(8, 23, 38, 0.42);
+        stroke-width: 4;
+        stroke-linejoin: round;
+        fill: rgba(255, 255, 255, 0.92);
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Arial, sans-serif;
+        font-weight: 720;
+      }
+      .local-town text {
+        font-size: 16px;
+        font-weight: 740;
+        opacity: 0.86;
+      }
+      .local-region text {
+        paint-order: stroke;
+        stroke: rgba(8, 18, 26, 0.42);
+        stroke-width: 5;
+        fill: rgba(245, 247, 245, 0.62);
+        font-size: 34px;
+        font-weight: 860;
+        letter-spacing: 0.05em;
+        font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", Arial, sans-serif;
+      }
+      .local-place-label rect,
+      .local-route-label rect {
+        fill: rgba(13, 28, 44, 0.62);
+        stroke: rgba(255, 255, 255, 0.18);
+        stroke-width: 1;
+        filter: url(#localGlassShadow);
+      }
+      .local-route-label text {
+        font-size: 14px;
+        font-weight: 820;
+      }
+      .local-place-label text {
+        font-size: 17px;
+        font-weight: 820;
+      }
+      .city-region {
+        opacity: 0.55;
+        filter: url(#localBlueGlow);
+      }
+      .city-core {
+        fill: #ffffff;
+        stroke: rgba(84, 177, 255, 0.98);
+        stroke-width: 5;
+        filter: url(#localBlueGlow);
+      }
+      .city-ring {
+        fill: none;
+        stroke: rgba(107, 194, 255, 0.46);
+        stroke-width: 2;
+        animation: localCityPulse 3.8s ease-in-out infinite;
+        transform-box: fill-box;
+        transform-origin: center;
+      }
+      .local-travel-dot {
+        fill: rgba(255, 255, 255, 0.98);
+        filter: url(#localBlueGlow);
+      }
+      body.view-local #globeCanvas,
+      body.view-local .route-overlay,
+      body.view-local .map-label,
+      body.view-local .location-dot {
+        display: none;
+      }
+      body.view-real-map #globeCanvas,
+      body.view-real-map .route-overlay,
+      body.view-real-map .local-map,
+      body.view-real-map .map-label,
+      body.view-real-map .location-dot {
+        display: none;
+      }
+      body.view-real-map .real-atmosphere {
+        display: block;
+      }
+      body.view-local .local-map {
+        display: block;
+      }
+      body.view-real-map .real-map {
+        display: block;
+      }
+      body.view-local .map-shell,
+      body.view-real-map .map-shell {
+        cursor: default;
+        touch-action: auto;
+      }
+      body.view-real-map .map-shell::before {
+        opacity: 0.18;
+      }
+      body.view-real-map .map-shell::after {
+        z-index: 4;
+        background:
+          linear-gradient(90deg, rgba(232, 239, 249, 0.22), transparent 34%, rgba(4, 12, 24, 0.10)),
+          linear-gradient(180deg, rgba(255, 255, 255, 0.04), transparent 42%, rgba(0, 0, 0, 0.12));
+      }
+      body.view-local.local-customs .local-route-base,
+      body.view-local.local-customs .local-route-progress,
+      body.view-local.local-customs .local-route-shimmer,
+      body.view-local.local-customs .local-travel-dot,
+      body.view-local.local-customs .local-route-label {
+        opacity: 0;
+      }
+      body.view-local.local-customs .rosario-node {
+        opacity: 0.24;
+      }
+      body.view-local.local-customs .ba-node .city-ring {
+        stroke-width: 3;
+        opacity: 0.95;
+      }
+      body.view-local.local-to-rosario .local-route-progress {
+        stroke-dasharray: 1;
+        stroke-dashoffset: 1;
+        animation: localRouteReveal 7.4s cubic-bezier(0.33, 1, 0.68, 1) infinite;
+      }
+      body.view-local.local-to-rosario .local-route-shimmer {
+        opacity: 1;
+      }
+      body.view-local.local-distribution .local-route-progress {
+        stroke-dasharray: 1;
+        stroke-dashoffset: 0;
+        opacity: 0.64;
+      }
+      body.view-local.local-distribution .ba-node {
+        opacity: 0.50;
+      }
+      body.view-local.local-distribution .rosario-node .city-ring {
+        stroke-width: 3.2;
+        opacity: 1;
+        animation-duration: 3s;
+      }
+
       .route-overlay {
         position: absolute;
         inset: 0;
@@ -182,6 +593,45 @@
         border-radius: 50%;
         background: #fff;
         box-shadow: 0 0 14px rgba(255, 255, 255, 0.95);
+      }
+
+      .mode-switcher {
+        position: absolute;
+        z-index: 40;
+        right: 18px;
+        bottom: 18px;
+        display: none;
+        gap: 8px;
+        flex-wrap: wrap;
+        justify-content: flex-end;
+        max-width: min(680px, calc(100% - 36px));
+        padding: 8px;
+        border-radius: 999px;
+        pointer-events: auto;
+        background: rgba(255, 255, 255, 0.12);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        backdrop-filter: blur(26px) saturate(180%);
+        -webkit-backdrop-filter: blur(26px) saturate(180%);
+        box-shadow: 0 18px 52px rgba(0, 0, 0, 0.22), inset 0 1px 0 rgba(255, 255, 255, 0.18);
+      }
+      .mode-switcher a {
+        display: inline-flex;
+        align-items: center;
+        height: 30px;
+        padding: 0 11px;
+        border-radius: 999px;
+        color: rgba(255, 255, 255, 0.86);
+        text-decoration: none;
+        font-size: 12px;
+        font-weight: 760;
+        white-space: nowrap;
+      }
+      .mode-switcher a.active {
+        color: rgba(7, 18, 32, 0.90);
+        background: rgba(255, 255, 255, 0.78);
+      }
+      @media (min-width: 900px) {
+        .mode-switcher { display: flex; }
       }
 
       .desktop-flag {
@@ -1248,7 +1698,8 @@
         .product + .product {
           border-top-color: rgba(255, 255, 255, 0.10);
         }
-        .map-label {
+        body.view-local .map-label,
+        body.view-real-map .map-label {
           display: none;
         }
 
@@ -1368,6 +1819,34 @@
         58%, 100% { opacity: 0; transform: translateX(160%); }
       }
       @keyframes routeFlow { from { stroke-dashoffset: 94; } to { stroke-dashoffset: 0; } }
+      @keyframes localRouteReveal {
+        0%, 14% { stroke-dashoffset: 1; opacity: 0.30; }
+        64% { stroke-dashoffset: 0; opacity: 1; }
+        100% { stroke-dashoffset: 0; opacity: 0.88; }
+      }
+      @keyframes localRouteFlow {
+        0%, 20% { stroke-dashoffset: 1; opacity: 0; }
+        36% { opacity: 0.88; }
+        68% { stroke-dashoffset: 0; opacity: 0.72; }
+        86%, 100% { stroke-dashoffset: 0; opacity: 0; }
+      }
+      @keyframes localCityPulse {
+        0%, 100% { opacity: 0.82; transform: scale(1); }
+        52% { opacity: 0.24; transform: scale(1.22); }
+      }
+      @keyframes realCityPulse {
+        0%, 100% { opacity: 0.82; transform: translate(-50%, -50%) scale(0.92); }
+        50% { opacity: 0.24; transform: translate(-50%, -50%) scale(1.24); }
+      }
+      @keyframes realCloudDrift {
+        from { transform: translate3d(-2.2%, -1.4%, 0) scale(1.02); }
+        to { transform: translate3d(2.4%, 1.6%, 0) scale(1.06); }
+      }
+      @keyframes realCloudMarkerFloat {
+        0% { transform: translate3d(-7%, -2%, 0) scale(0.98); }
+        48% { transform: translate3d(2%, 1%, 0) scale(1.03); }
+        100% { transform: translate3d(9%, 3%, 0) scale(1.06); }
+      }
       @keyframes locationHaloPulse {
         0%, 100% { opacity: 0.95; transform: translate(-50%, -50%) scale(1); }
         50% { opacity: 0.42; transform: translate(-50%, -50%) scale(1.2); }
@@ -1405,6 +1884,158 @@
           <line class="route-shimmer" id="screenRouteShimmer" x1="0" y1="0" x2="0" y2="0"></line>
           <circle class="route-pulse-dot" id="screenRoutePulse" cx="0" cy="0" r="4"></circle>
         </svg>
+        <div class="real-map" id="realMap" aria-hidden="true"></div>
+        <div class="real-atmosphere" aria-hidden="true"></div>
+        <div class="local-map" aria-hidden="true">
+          <svg viewBox="0 0 1200 780" preserveAspectRatio="xMidYMid slice">
+            <defs>
+              <linearGradient id="localLandGradient" x1="0" x2="1" y1="0" y2="1">
+                <stop offset="0" stop-color="#9fc08a" />
+                <stop offset="0.36" stop-color="#6f9f75" />
+                <stop offset="0.68" stop-color="#5b8978" />
+                <stop offset="1" stop-color="#426f79" />
+              </linearGradient>
+              <linearGradient id="localWaterGradient" x1="0" x2="1" y1="0" y2="1">
+                <stop offset="0" stop-color="#2e6f92" />
+                <stop offset="0.46" stop-color="#164a73" />
+                <stop offset="1" stop-color="#08253f" />
+              </linearGradient>
+              <filter id="localTerrainTexture" x="-10%" y="-10%" width="120%" height="120%">
+                <feTurbulence type="fractalNoise" baseFrequency="0.018 0.034" numOctaves="4" seed="12" result="noise" />
+                <feColorMatrix in="noise" type="matrix" values="0.50 0 0 0 0.08 0 0.58 0 0 0.18 0 0 0.42 0 0.08 0 0 0 .34 0" result="coloredNoise" />
+                <feBlend in="SourceGraphic" in2="coloredNoise" mode="overlay" />
+              </filter>
+              <filter id="localBlueGlow" x="-80%" y="-80%" width="260%" height="260%">
+                <feGaussianBlur stdDeviation="7" result="blur" />
+                <feColorMatrix in="blur" type="matrix" values="0 0 0 0 0.15 0 0 0 0 0.55 0 0 0 0 1 0 0 0 .75 0" result="glow" />
+                <feMerge>
+                  <feMergeNode in="glow" />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              <filter id="localRouteShadow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur stdDeviation="5" result="blur" />
+                <feOffset dx="0" dy="6" />
+                <feComponentTransfer>
+                  <feFuncA type="linear" slope="0.36" />
+                </feComponentTransfer>
+                <feMerge>
+                  <feMergeNode />
+                  <feMergeNode in="SourceGraphic" />
+                </feMerge>
+              </filter>
+              <filter id="localGlassShadow" x="-50%" y="-50%" width="200%" height="200%">
+                <feDropShadow dx="0" dy="12" stdDeviation="12" flood-color="#06131f" flood-opacity="0.25" />
+              </filter>
+              <path id="localRoutePath" d="M 885 610 C 828 548 785 507 730 457 C 668 401 606 349 548 294 C 526 273 514 250 508 229" pathLength="1" />
+            </defs>
+
+            <rect class="local-land" width="1200" height="780" filter="url(#localTerrainTexture)" />
+            <g opacity=".28">
+              <path fill="#b88355" d="M0 125 C150 95 260 122 372 188 C448 232 522 230 594 188 C654 153 762 152 848 194 C738 234 604 260 490 305 C355 358 218 344 86 292 C28 268 -6 220 0 125Z" />
+              <path fill="#caa078" d="M84 500 C220 435 370 450 472 510 C542 551 620 545 704 520 C650 612 536 676 386 668 C246 660 148 600 84 500Z" />
+              <path fill="#337f5b" d="M686 60 C824 88 940 136 1040 218 C912 203 790 238 680 206 C612 186 602 118 686 60Z" />
+            </g>
+            <path class="local-water" d="M830 30 C970 50 1120 128 1200 252 L1200 780 L1010 780 C1017 710 986 650 914 612 C870 589 852 560 875 521 C900 478 966 445 1018 392 C1080 329 1084 238 1008 170 C952 119 883 89 830 30Z" />
+            <path class="local-water" opacity=".58" d="M904 258 C988 300 1042 360 1017 420 C992 484 911 522 872 572 C849 602 845 630 864 659 C809 628 770 589 781 545 C795 492 860 451 894 396 C922 350 925 304 904 258Z" />
+            <path class="local-water-detail" d="M918 244 C968 302 972 361 928 423 C894 471 856 517 836 566" />
+            <path class="local-water-detail" d="M1005 175 C1036 248 1030 316 984 383 C946 438 914 484 900 538" />
+            <path class="local-water-detail" d="M1068 238 C1118 303 1110 381 1040 454" />
+
+            <g opacity=".35">
+              <path class="local-river" d="M650 0 C640 88 686 146 672 222 C655 304 708 350 722 428" />
+              <path class="local-river" d="M478 18 C512 90 486 144 502 208 C522 288 584 330 603 394" />
+              <path class="local-river" d="M310 100 C412 180 436 254 512 315 C586 374 640 416 692 486" />
+              <path class="local-river" d="M1040 126 C1008 196 1026 274 975 340 C934 394 930 455 884 504" />
+            </g>
+            <g opacity=".54">
+              <path class="local-boundary" d="M650 0 C675 120 660 235 704 352 C732 426 742 520 706 780" />
+              <path class="local-boundary" d="M0 430 C140 406 274 390 408 420 C518 445 626 488 735 508" />
+            </g>
+
+            <g opacity=".58">
+              <path class="local-road major" d="M900 622 C806 560 734 523 658 473 C574 418 500 356 430 302" />
+              <path class="local-road" d="M865 622 C792 650 722 665 640 658 C552 651 465 618 388 578" />
+              <path class="local-road" d="M820 580 C748 562 671 563 596 548 C514 531 444 502 370 460" />
+              <path class="local-road" d="M520 228 C430 252 350 300 272 360" />
+              <path class="local-road" d="M508 229 C590 206 680 198 760 212" />
+              <path class="local-road" d="M714 454 C780 410 826 358 898 318" />
+              <path class="local-road" d="M604 350 C536 390 488 444 430 506" />
+              <path class="local-road" d="M280 92 C356 138 426 178 504 226" />
+              <path class="local-road" d="M136 392 C246 384 348 402 452 450" />
+              <path class="local-road" d="M760 212 C840 210 916 196 1002 184" />
+              <path class="local-road" d="M842 666 C902 698 958 728 1018 768" />
+            </g>
+
+            <g class="local-region">
+              <text x="660" y="72">ENTRE RÍOS</text>
+              <text x="1010" y="310">URUGUAY</text>
+            </g>
+
+            <g class="local-shield" opacity=".86">
+              <g transform="translate(706 444)">
+                <rect x="-15" y="-14" width="30" height="25" rx="6" />
+                <text x="0" y="5" text-anchor="middle">9</text>
+              </g>
+              <g transform="translate(808 548)">
+                <rect x="-15" y="-14" width="30" height="25" rx="6" />
+                <text x="0" y="5" text-anchor="middle">12</text>
+              </g>
+              <g transform="translate(615 210)">
+                <rect x="-15" y="-14" width="30" height="25" rx="6" />
+                <text x="0" y="5" text-anchor="middle">11</text>
+              </g>
+              <g transform="translate(482 370)">
+                <rect x="-15" y="-14" width="30" height="25" rx="6" />
+                <text x="0" y="5" text-anchor="middle">8</text>
+              </g>
+            </g>
+
+            <g class="local-town">
+              <text x="707" y="423">San Nicolás</text>
+              <text x="375" y="518">Pergamino</text>
+              <text x="866" y="565">Zárate</text>
+              <text x="472" y="185">Santa Fe</text>
+              <text x="446" y="626">Luján</text>
+            </g>
+
+            <path class="local-route-base" d="M 885 610 C 828 548 785 507 730 457 C 668 401 606 349 548 294 C 526 273 514 250 508 229" pathLength="1" />
+            <path class="local-route-progress" d="M 885 610 C 828 548 785 507 730 457 C 668 401 606 349 548 294 C 526 273 514 250 508 229" pathLength="1" />
+            <path class="local-route-shimmer" d="M 885 610 C 828 548 785 507 730 457 C 668 401 606 349 548 294 C 526 273 514 250 508 229" pathLength="1" />
+            <circle class="local-travel-dot" r="8">
+              <animateMotion dur="7.4s" repeatCount="indefinite" keyTimes="0;0.76;1" keySplines=".33 1 .68 1; .33 1 .68 1" calcMode="spline">
+                <mpath href="#localRoutePath" />
+              </animateMotion>
+            </circle>
+
+            <g class="local-route-label" transform="translate(678 462)">
+              <rect x="-36" y="-22" width="72" height="36" rx="13" />
+              <text x="0" y="2" text-anchor="middle">Ruta 9</text>
+            </g>
+
+            <g class="ba-node">
+              <circle class="city-region" cx="885" cy="610" r="58" fill="rgba(77, 173, 255, 0.22)" />
+              <circle class="city-ring" cx="885" cy="610" r="34" />
+              <circle class="city-ring" cx="885" cy="610" r="50" opacity=".45" />
+              <circle class="city-core" cx="885" cy="610" r="12" />
+              <g class="local-place-label" transform="translate(955 612)">
+                <rect x="-8" y="-26" width="132" height="42" rx="16" />
+                <text x="58" y="0" text-anchor="middle">Buenos Aires</text>
+              </g>
+            </g>
+
+            <g class="rosario-node">
+              <circle class="city-region" cx="508" cy="229" r="50" fill="rgba(77, 173, 255, 0.20)" />
+              <circle class="city-ring" cx="508" cy="229" r="29" />
+              <circle class="city-ring" cx="508" cy="229" r="43" opacity=".42" />
+              <circle class="city-core" cx="508" cy="229" r="11" />
+              <g class="local-place-label" transform="translate(508 178)">
+                <rect x="-50" y="-24" width="100" height="38" rx="15" />
+                <text x="0" y="0" text-anchor="middle">Rosario</text>
+              </g>
+            </g>
+          </svg>
+        </div>
         <div class="top-bar">
           <div class="pill"><span class="spark"></span> Guangzhou → Buenos Aires</div>
           <div class="pill secondary">Llegada estimada · 35-45 días</div>
@@ -1430,6 +2061,12 @@
         <div class="map-label" id="destLabel">Buenos Aires <small>AR</small></div>
         <div class="location-dot" id="locationDot" aria-hidden="true"></div>
         <div class="debug-hud" id="debugHud" hidden></div>
+        <nav class="mode-switcher" aria-label="Cambiar vista conceptual">
+          <a href="./tracking-concept.html" data-mode-link="international">Globo</a>
+          <a href="./tracking-concept.html?view=real-map&localStatus=customs" data-mode-link="real-customs">Real aduana</a>
+          <a href="./tracking-concept.html?view=real-map&localStatus=to-rosario" data-mode-link="real-to-rosario">Real ruta</a>
+          <a href="./tracking-concept.html?view=real-map&localStatus=local-distribution" data-mode-link="real-distribution">Real Rosario</a>
+        </nav>
       </section>
 
       <section class="sheet" id="sheet" aria-label="Detalle del pedido">
@@ -1529,14 +2166,61 @@
     <script type="module">
       import * as THREE from "../node_modules/three/build/three.module.js";
       import { GLTFLoader } from "../node_modules/three/examples/jsm/loaders/GLTFLoader.js";
+      import { STLLoader } from "../node_modules/three/examples/jsm/loaders/STLLoader.js";
+      const mapLibreModulePromise = import("https://esm.sh/maplibre-gl@5.24.0").catch((error) => {
+        console.warn("MapLibre ESM import failed", error);
+        return null;
+      });
 
-      const progress = 0.45;
-      const routeAltitude = 0.035;
-      const globeRadius = 1.62;
       const params = new URLSearchParams(window.location.search);
       const debugMode = params.get("debug") === "1" || params.get("debug") === "true";
       const visualLook = params.get("look") || "";
+      const visualView = params.get("view") || "international";
+      const rawLocalStatus = params.get("localStatus") || "to-rosario";
+      const localStatus = rawLocalStatus === "local-distribution" ? "distribution" : rawLocalStatus;
+      const isLocalView = visualView === "local";
+      const isRealMapView = visualView === "real-map";
+      const isNationalView = isLocalView || isRealMapView;
+      const localProgressByStatus = {
+        customs: 0.75,
+        "to-rosario": 0.90,
+        distribution: 0.97,
+      };
+      const progress = isNationalView ? localProgressByStatus[localStatus] ?? 0.90 : 0.45;
+      const routeAltitude = 0.035;
+      const globeRadius = 1.62;
       document.body.classList.toggle("look-icloud", visualLook === "icloud");
+      document.body.classList.toggle("view-local", isLocalView);
+      document.body.classList.toggle("view-real-map", isRealMapView);
+      document.body.classList.toggle("local-customs", isNationalView && localStatus === "customs");
+      document.body.classList.toggle("local-to-rosario", isNationalView && localStatus === "to-rosario");
+      document.body.classList.toggle("local-distribution", isNationalView && localStatus === "distribution");
+      document.querySelectorAll("[data-mode-link]").forEach((link) => {
+        const mode = link.dataset.modeLink;
+        const url = new URL(window.location.href);
+        url.search = "";
+        if (mode?.startsWith("real-")) {
+          const realStatus = mode.replace("real-", "");
+          url.searchParams.set("view", "real-map");
+          url.searchParams.set("localStatus", realStatus === "distribution" ? "local-distribution" : realStatus);
+        } else if (mode !== "international") {
+          url.searchParams.set("view", "local");
+          url.searchParams.set("localStatus", mode);
+        }
+        link.href = url.toString();
+        link.classList.toggle(
+          "active",
+          isRealMapView
+            ? mode === `real-${localStatus}`
+            : mode === (isLocalView ? localStatus : "international")
+        );
+      });
+      document.querySelector(".mode-switcher")?.addEventListener("pointerdown", (event) => {
+        event.stopPropagation();
+      });
+      document.querySelector(".mode-switcher")?.addEventListener("click", (event) => {
+        event.stopPropagation();
+      });
       const calibration = {
         mode: params.get("coord") || "real",
         lngOffset: Number(params.get("lngOffset") ?? params.get("lonOffset") ?? "0"),
@@ -1560,6 +2244,7 @@
       const stage = document.getElementById("stage");
       const map = document.getElementById("map");
       const canvas = document.getElementById("globeCanvas");
+      const realMapEl = document.getElementById("realMap");
       const sheet = document.getElementById("sheet");
       const sheetContent = sheet.querySelector(".content");
       const grab = document.getElementById("grab");
@@ -1573,6 +2258,651 @@
       const screenRoutePulse = document.getElementById("screenRoutePulse");
       const debugHud = document.getElementById("debugHud");
       routeOverlay.hidden = true;
+
+      function configureLocalTrackingView() {
+        if (!isNationalView) return;
+
+        const stateByStatus = {
+          customs: {
+            label: "En aduana",
+            help: "Tu pedido ya llegó a Argentina y se encuentra en Buenos Aires en proceso aduanero. No necesitás realizar ninguna acción.",
+            deliveryTitle: "Estimado desde el despacho internacional",
+            deliveryDate: "20 May - 30 May",
+          },
+          "to-rosario": {
+            label: "En camino a Rosario",
+            help: "Tu pedido ya fue liberado y comenzó el tramo nacional desde Buenos Aires hacia Rosario. Te avisaremos cuando llegue a nuestra ciudad.",
+            deliveryTitle: "Estimado de llegada a Rosario",
+            deliveryDate: "Próximos días",
+          },
+          distribution: {
+            label: "En distribución local",
+            help: "Tu pedido ya llegó a Rosario y está siendo gestionado localmente. Pronto coordinaremos la entrega final.",
+            deliveryTitle: "Entrega final estimada",
+            deliveryDate: "Coordinación local",
+          },
+        };
+        const current = stateByStatus[localStatus] || stateByStatus["to-rosario"];
+
+        const desktopRouteLine = document.querySelector(".desktop-route-line");
+        if (desktopRouteLine) {
+          desktopRouteLine.innerHTML = '<span>Buenos Aires, Argentina</span><span class="desktop-arrow">→</span><span>Rosario, Argentina</span>';
+        }
+        const desktopRouteKicker = document.querySelector(".desktop-route-kicker");
+        if (desktopRouteKicker) {
+          desktopRouteKicker.textContent = "Seguimiento nacional";
+        }
+        const mobileRoutePill = document.querySelector(".top-bar .pill:first-child");
+        if (mobileRoutePill) {
+          mobileRoutePill.innerHTML = '<span class="spark"></span> Buenos Aires → Rosario';
+        }
+        const mobileSecondaryPill = document.querySelector(".top-bar .pill.secondary");
+        if (mobileSecondaryPill) {
+          mobileSecondaryPill.textContent = "Tramo nacional";
+        }
+
+        const status = document.querySelector(".status");
+        if (status) status.innerHTML = `<span class="pulse"></span> ${current.label}`;
+
+        const deliveryTitle = document.querySelector(".delivery-title");
+        const deliveryDate = document.querySelector(".delivery-date");
+        if (deliveryTitle) deliveryTitle.textContent = current.deliveryTitle;
+        if (deliveryDate) deliveryDate.textContent = current.deliveryDate;
+
+        const timeline = document.querySelector(".timeline");
+        if (!timeline) return;
+
+        const steps = [
+          { key: "confirmed", label: "Pedido confirmado", when: "12 Abr, 10:30" },
+          { key: "preparing", label: "En preparación", when: "13 Abr, 08:15" },
+          { key: "international", label: "En vuelo internacional", when: "15 Abr, 14:45" },
+          { key: "customs", label: "En aduana", when: localStatus === "customs" ? "Actualmente en Buenos Aires" : "Completado" },
+          { key: "to-rosario", label: "En camino a Rosario", when: localStatus === "to-rosario" ? "Ruta nacional" : "Pendiente" },
+          { key: "distribution", label: "En distribución local", when: localStatus === "distribution" ? "Actualmente en Rosario" : "Pendiente" },
+          { key: "delivered", label: "Entregado", when: "Pendiente" },
+        ];
+        const order = ["confirmed", "preparing", "international", "customs", "to-rosario", "distribution", "delivered"];
+        const currentIndex = order.indexOf(localStatus);
+        timeline.innerHTML = steps.map((step, index) => {
+          const state = index < currentIndex ? "done" : index === currentIndex ? "current" : "pending";
+          const help = state === "current"
+            ? `<details class="inline-help"><summary>¿Qué significa?</summary><p>${current.help}</p></details>`
+            : "";
+          return `
+            <div class="step ${state}">
+              <div class="node"></div>
+              <div class="step-head">
+                <div>
+                  <div class="name">${step.label}</div>
+                  <div class="when">${step.when}</div>
+                </div>
+                ${help}
+              </div>
+            </div>
+          `;
+        }).join("");
+      }
+      configureLocalTrackingView();
+
+      const realRouteFallback = {
+        type: "Feature",
+        geometry: {
+          type: "LineString",
+          coordinates: [
+            [-58.3816, -34.6037],
+            [-58.55, -34.48],
+            [-58.75, -34.32],
+            [-58.95, -34.12],
+            [-59.18, -33.92],
+            [-59.42, -33.72],
+            [-59.72, -33.48],
+            [-59.96, -33.30],
+            [-60.22, -33.13],
+            [-60.45, -33.02],
+            [-60.6393, -32.9468],
+          ],
+        },
+        properties: {},
+      };
+
+      function makeRealCityMarker({ name, type }) {
+        const marker = document.createElement("div");
+        marker.className = `real-city-marker ${type}`;
+        marker.innerHTML = `
+          <div class="city-halo"></div>
+          <div class="city-dot"></div>
+          <div class="city-label">${name}</div>
+        `;
+        return marker;
+      }
+
+      function addRealMapClouds(realMap, maplibregl, isDesktop) {
+        const sizeFactor = isDesktop ? 1 : 0.68;
+        const cloudConfigs = [
+          { lngLat: [-61.30, -34.35], width: 330, opacity: 0.24, duration: 68 },
+          { lngLat: [-61.18, -32.45], width: 260, opacity: 0.20, duration: 74 },
+          { lngLat: [-58.00, -32.80], width: 310, opacity: 0.22, duration: 64 },
+          { lngLat: [-57.72, -33.82], width: 250, opacity: 0.18, duration: 71 },
+          { lngLat: [-59.65, -35.18], width: 360, opacity: 0.23, duration: 79 },
+          { lngLat: [-57.80, -34.85], width: 230, opacity: 0.16, duration: 66 },
+        ];
+
+        cloudConfigs.forEach((config, index) => {
+          const host = document.createElement("div");
+          host.className = "real-cloud-host";
+          host.style.setProperty("--cloud-width", `${Math.round(config.width * sizeFactor)}px`);
+          host.style.setProperty("--cloud-opacity", String(config.opacity));
+          host.style.setProperty("--cloud-duration", `${config.duration}s`);
+
+          const shape = document.createElement("div");
+          shape.className = "real-cloud-shape";
+          shape.style.animationDelay = `${index * -9}s`;
+          host.appendChild(shape);
+
+          new maplibregl.Marker({ element: host, anchor: "center" })
+            .setLngLat(config.lngLat)
+            .addTo(realMap);
+        });
+      }
+
+      function applyRealMapPalette(realMap) {
+        const waterColors = ["water", "ocean", "river", "lake"];
+        realMap.getStyle().layers.forEach((layer) => {
+          try {
+            const id = layer.id.toLowerCase();
+            if (layer.type === "background") {
+              realMap.setPaintProperty(layer.id, "background-color", "#789a86");
+            }
+            if (layer.type === "fill" && waterColors.some((token) => id.includes(token))) {
+              realMap.setPaintProperty(layer.id, "fill-color", "#163f72");
+              realMap.setPaintProperty(layer.id, "fill-opacity", 0.92);
+            }
+            if (layer.type === "fill" && (id.includes("land") || id.includes("park") || id.includes("wood"))) {
+              realMap.setPaintProperty(layer.id, "fill-color", id.includes("park") || id.includes("wood") ? "#5f9276" : "#779b85");
+              realMap.setPaintProperty(layer.id, "fill-opacity", 0.88);
+            }
+            if (layer.type === "line" && id.includes("road")) {
+              realMap.setPaintProperty(layer.id, "line-color", "#dbe6df");
+              realMap.setPaintProperty(layer.id, "line-opacity", id.includes("minor") ? 0.34 : 0.54);
+            }
+            if (layer.type === "line" && (id.includes("boundary") || id.includes("admin"))) {
+              realMap.setPaintProperty(layer.id, "line-color", "rgba(215,226,234,0.46)");
+              realMap.setPaintProperty(layer.id, "line-opacity", 0.48);
+            }
+            if (layer.type === "symbol") {
+              realMap.setPaintProperty(layer.id, "text-opacity", 0);
+              realMap.setPaintProperty(layer.id, "icon-opacity", 0);
+            }
+          } catch {
+            // Some shared vector styles do not expose every paint property on every layer.
+          }
+        });
+      }
+
+      function realRouteGradient(t) {
+        const head = Math.max(0, Math.min(1, t));
+        const tail = Math.max(0.001, Math.min(0.82, head - 0.20));
+        const glowStart = Math.max(tail + 0.02, Math.min(0.94, head - 0.055));
+        const headStop = Math.max(glowStart + 0.001, Math.min(0.985, head));
+        const fade = Math.max(headStop + 0.001, Math.min(0.995, head + 0.045));
+        return [
+          "interpolate",
+          ["linear"],
+          ["line-progress"],
+          0,
+          "rgba(75, 165, 255, 0.20)",
+          tail,
+          "rgba(75, 165, 255, 0.26)",
+          glowStart,
+          "rgba(111, 205, 255, 0.92)",
+          headStop,
+          "rgba(255, 255, 255, 0.98)",
+          fade,
+          "rgba(111, 205, 255, 0.0)",
+          1,
+          "rgba(111, 205, 255, 0.0)",
+        ];
+      }
+
+      async function loadRealRoute() {
+        const osrmUrl = "https://router.project-osrm.org/route/v1/driving/-58.3816,-34.6037;-60.6393,-32.9468?overview=full&geometries=geojson&alternatives=false&steps=false";
+        try {
+          const response = await fetch(osrmUrl);
+          if (!response.ok) throw new Error(`OSRM ${response.status}`);
+          const data = await response.json();
+          const coordinates = data?.routes?.[0]?.geometry?.coordinates;
+          if (!Array.isArray(coordinates) || coordinates.length < 2) throw new Error("Invalid OSRM route");
+          return {
+            type: "Feature",
+            geometry: { type: "LineString", coordinates },
+            properties: {},
+          };
+        } catch (error) {
+          console.warn("Using fallback Buenos Aires-Rosario route", error);
+          return realRouteFallback;
+        }
+      }
+
+      function createEllipseFeature(id, [lng, lat], radiusLng, radiusLat, steps = 48) {
+        const coordinates = [];
+        for (let index = 0; index <= steps; index += 1) {
+          const angle = (index / steps) * Math.PI * 2;
+          coordinates.push([
+            lng + Math.cos(angle) * radiusLng,
+            lat + Math.sin(angle) * radiusLat,
+          ]);
+        }
+        return {
+          type: "Feature",
+          geometry: {
+            type: "Polygon",
+            coordinates: [coordinates],
+          },
+          properties: { id },
+        };
+      }
+
+      function getRealMapHomeView(isDesktop) {
+        return isDesktop
+          ? {
+              center: [-59.22, -33.77],
+              zoom: 7.34,
+              pitch: 57,
+              bearing: 2,
+              padding: { top: 94, right: 72, bottom: 64, left: 430 },
+            }
+          : {
+              center: [-59.60, -33.82],
+              zoom: 6.48,
+              pitch: 57,
+              bearing: -27,
+              padding: { top: 82, right: 24, bottom: 170, left: 24 },
+            };
+      }
+
+      async function addRealMapLandmarks(realMap, maplibregl) {
+        const customLayerId = "real-city-landmarks";
+        if (realMap.getLayer(customLayerId)) return;
+
+        const stlLoader = new STLLoader();
+        const obeliskUrl = new URL("../models3d/obelisco%20de%20buenos%20aires,%20buenos%20aires%20obelisk%20-%201786804/files/obelisco_buenos_aires.stl", window.location.href).href;
+        const monumentUrl = new URL("../models3d/Monumento%20a%20la%20Bandera%20-%20Rosario,%20Argentina%20-%203385751/files/monumento_by_cgnacho.stl", window.location.href).href;
+
+        const [obeliskGeometry, monumentGeometry] = await Promise.all([
+          stlLoader.loadAsync(obeliskUrl),
+          stlLoader.loadAsync(monumentUrl),
+        ]);
+
+        const prepareGeometry = (geometry) => {
+          geometry.computeVertexNormals();
+          geometry.computeBoundingBox();
+          const box = geometry.boundingBox;
+          const centerX = (box.min.x + box.max.x) / 2;
+          const centerY = (box.min.y + box.max.y) / 2;
+          geometry.translate(-centerX, -centerY, -box.min.z);
+          geometry.computeBoundingSphere();
+          return geometry;
+        };
+
+        prepareGeometry(obeliskGeometry);
+        prepareGeometry(monumentGeometry);
+
+        const obeliskMaterial = new THREE.MeshStandardMaterial({
+          color: new THREE.Color("#f2ebde"),
+          roughness: 0.88,
+          metalness: 0.02,
+        });
+        const monumentMaterial = new THREE.MeshStandardMaterial({
+          color: new THREE.Color("#c8b499"),
+          roughness: 0.94,
+          metalness: 0.01,
+        });
+
+        const landmarkConfigs = [
+          {
+            id: "obelisk",
+            geometry: obeliskGeometry,
+            material: obeliskMaterial,
+            lngLat: [-58.3817, -34.6030],
+            altitude: 0,
+            scaleMultiplier: 950,
+            yaw: Math.PI * 0.08,
+          },
+          {
+            id: "monument",
+            geometry: monumentGeometry,
+            material: monumentMaterial,
+            lngLat: [-60.6309, -32.9479],
+            altitude: 0,
+            scaleMultiplier: 420,
+            yaw: Math.PI * 0.24,
+          },
+        ];
+
+        const landmarkLayer = {
+          id: customLayerId,
+          type: "custom",
+          renderingMode: "3d",
+          onAdd(mapInstance, gl) {
+            this.map = mapInstance;
+            this.camera = new THREE.Camera();
+            this.scene = new THREE.Scene();
+            this.renderer = new THREE.WebGLRenderer({
+              canvas: mapInstance.getCanvas(),
+              context: gl,
+              antialias: true,
+            });
+            this.renderer.autoClear = false;
+            this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+
+            const ambientLight = new THREE.AmbientLight(0xf1f6ff, 1.8);
+            const sunLight = new THREE.DirectionalLight(0xfff4e6, 1.6);
+            sunLight.position.set(120, -80, 180);
+            const fillLight = new THREE.DirectionalLight(0xc3e2ff, 0.95);
+            fillLight.position.set(-120, 90, 130);
+            this.scene.add(ambientLight, sunLight, fillLight);
+
+            landmarkConfigs.forEach((config) => {
+              const merc = maplibregl.MercatorCoordinate.fromLngLat(config.lngLat, config.altitude);
+              const meterScale = merc.meterInMercatorCoordinateUnits();
+              const mesh = new THREE.Mesh(config.geometry, config.material);
+              mesh.castShadow = false;
+              mesh.receiveShadow = false;
+              mesh.rotation.set(0, 0, config.yaw);
+              mesh.scale.set(
+                meterScale * config.scaleMultiplier,
+                -meterScale * config.scaleMultiplier,
+                meterScale * config.scaleMultiplier
+              );
+              mesh.position.set(merc.x, merc.y, merc.z);
+
+              const halo = new THREE.Sprite(
+                new THREE.SpriteMaterial({
+                  color: config.id === "obelisk" ? "#b9dfff" : "#9fd6ff",
+                  opacity: 0.18,
+                  transparent: true,
+                  depthWrite: false,
+                })
+              );
+              halo.scale.setScalar(config.id === "obelisk" ? 0.00042 : 0.0005);
+              halo.position.set(merc.x, merc.y, merc.z + (config.id === "obelisk" ? 0.00008 : 0.00007));
+
+              this.scene.add(halo);
+              this.scene.add(mesh);
+            });
+          },
+          render(gl, args) {
+            this.camera.projectionMatrix = new THREE.Matrix4().fromArray(args.defaultProjectionData.mainMatrix);
+            this.renderer.resetState();
+            this.renderer.render(this.scene, this.camera);
+            this.map.triggerRepaint();
+          },
+        };
+
+        realMap.addLayer(landmarkLayer);
+      }
+
+      async function initRealMap() {
+        if (!isRealMapView || !realMapEl) return;
+        const mapLibreModule = await mapLibreModulePromise;
+        const maplibregl = window.maplibregl || mapLibreModule?.default || mapLibreModule;
+        if (!maplibregl?.Map) {
+          console.warn("MapLibre is not available for the real map prototype");
+          return;
+        }
+
+        const isDesktop = window.matchMedia("(min-width: 900px)").matches;
+        const buenosAires = [-58.3816, -34.6037];
+        const rosario = [-60.6393, -32.9468];
+        const homeView = getRealMapHomeView(isDesktop);
+        const realMap = new maplibregl.Map({
+          container: realMapEl,
+          style: "https://basemaps.cartocdn.com/gl/voyager-gl-style/style.json",
+          center: homeView.center,
+          zoom: homeView.zoom,
+          pitch: homeView.pitch,
+          bearing: homeView.bearing,
+          padding: homeView.padding,
+          canvasContextAttributes: { antialias: true },
+          dragRotate: false,
+          touchPitch: false,
+          cooperativeGestures: false,
+          dragPan: true,
+          scrollZoom: true,
+          doubleClickZoom: true,
+          touchZoomRotate: true,
+          attributionControl: true,
+        });
+        window.__realTrackingMap = realMap;
+        realMap.setPadding(homeView.padding);
+
+        window.addEventListener("resize", () => realMap.resize());
+
+        const baMarkerEl = makeRealCityMarker({ name: "Buenos Aires", type: "buenos-aires" });
+        const rosarioMarkerEl = makeRealCityMarker({ name: "Rosario", type: "rosario" });
+        new maplibregl.Marker({ element: baMarkerEl, anchor: "center" }).setLngLat(buenosAires).addTo(realMap);
+        new maplibregl.Marker({ element: rosarioMarkerEl, anchor: "center" }).setLngLat(rosario).addTo(realMap);
+        addRealMapClouds(realMap, maplibregl, isDesktop);
+
+        const routeTag = document.createElement("div");
+        routeTag.className = "real-route-tag";
+        routeTag.textContent = "Ruta 9";
+        new maplibregl.Marker({ element: routeTag, anchor: "center" })
+          .setLngLat([-59.55, -33.63])
+          .addTo(realMap);
+
+        if (localStatus === "customs") {
+          baMarkerEl.classList.remove("muted", "context");
+          rosarioMarkerEl.classList.add("muted");
+          routeTag.style.display = "none";
+        } else if (localStatus === "distribution") {
+          baMarkerEl.classList.add("context");
+          rosarioMarkerEl.classList.remove("muted", "context");
+          routeTag.style.opacity = "0.72";
+        } else {
+          baMarkerEl.classList.remove("muted", "context");
+          rosarioMarkerEl.classList.remove("muted", "context");
+        }
+
+        let resetTimer = null;
+        let easingHome = false;
+        const scheduleHomeView = () => {
+          if (resetTimer) window.clearTimeout(resetTimer);
+          resetTimer = window.setTimeout(() => {
+            easingHome = true;
+            realMap.easeTo({
+              ...homeView,
+              duration: 2400,
+              easing: (value) => 1 - Math.pow(1 - value, 4),
+            });
+          }, 2400);
+        };
+        const clearHomeReset = () => {
+          if (resetTimer) {
+            window.clearTimeout(resetTimer);
+            resetTimer = null;
+          }
+        };
+        realMap.on("movestart", () => {
+          if (easingHome) return;
+          clearHomeReset();
+        });
+        realMap.on("moveend", () => {
+          if (easingHome) {
+            easingHome = false;
+            return;
+          }
+          scheduleHomeView();
+        });
+
+        const addRealRouteLayers = async () => {
+          applyRealMapPalette(realMap);
+          const route = await loadRealRoute();
+          window.__realTrackingRouteSource = route === realRouteFallback ? "fallback" : "osrm";
+
+          realMap.addSource("real-route", {
+            type: "geojson",
+            data: route,
+            lineMetrics: true,
+          });
+          realMap.addSource("real-city-areas", {
+            type: "geojson",
+            data: {
+              type: "FeatureCollection",
+              features: [
+                createEllipseFeature("buenos-aires", buenosAires, 0.33, 0.23),
+                createEllipseFeature("rosario", rosario, 0.17, 0.12),
+              ],
+            },
+          });
+
+          realMap.addLayer({
+            id: "real-city-area-fill",
+            type: "fill",
+            source: "real-city-areas",
+            paint: {
+              "fill-color": [
+                "case",
+                ["==", ["get", "id"], "rosario"],
+                "rgba(144, 206, 255, 0.24)",
+                "rgba(126, 194, 255, 0.22)",
+              ],
+              "fill-opacity": [
+                "case",
+                ["==", ["get", "id"], "buenos-aires"],
+                localStatus === "customs" ? 0.34 : localStatus === "distribution" ? 0.10 : 0.20,
+                localStatus === "distribution" ? 0.32 : localStatus === "customs" ? 0.08 : 0.20,
+              ],
+            },
+          });
+
+          realMap.addLayer({
+            id: "real-city-area-outline",
+            type: "line",
+            source: "real-city-areas",
+            paint: {
+              "line-color": [
+                "case",
+                ["==", ["get", "id"], "rosario"],
+                "rgba(219, 244, 255, 0.96)",
+                "rgba(208, 239, 255, 0.88)",
+              ],
+              "line-width": ["interpolate", ["linear"], ["zoom"], 6, 1.5, 8, 2.4],
+              "line-opacity": [
+                "case",
+                ["==", ["get", "id"], "buenos-aires"],
+                localStatus === "customs" ? 0.94 : localStatus === "distribution" ? 0.28 : 0.78,
+                localStatus === "distribution" ? 0.96 : localStatus === "customs" ? 0.14 : 0.78,
+              ],
+              "line-blur": 0.7,
+            },
+          });
+
+          realMap.addLayer({
+            id: "real-route-shadow",
+            type: "line",
+            source: "real-route",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: {
+              "line-color": "rgba(2, 13, 28, 0.42)",
+              "line-width": ["interpolate", ["linear"], ["zoom"], 6, 7, 8, 12],
+              "line-blur": 5,
+              "line-opacity": localStatus === "customs" ? 0.08 : 0.52,
+            },
+          });
+
+          realMap.addLayer({
+            id: "real-route-glow",
+            type: "line",
+            source: "real-route",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: {
+              "line-color": "rgba(69, 171, 255, 0.64)",
+              "line-width": ["interpolate", ["linear"], ["zoom"], 6, 6, 8, 10],
+              "line-blur": 3.5,
+              "line-opacity": localStatus === "customs" ? 0.04 : 0.74,
+            },
+          });
+
+          realMap.addLayer({
+            id: "real-route-base",
+            type: "line",
+            source: "real-route",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: {
+              "line-color": "rgba(215, 240, 255, 0.52)",
+              "line-width": ["interpolate", ["linear"], ["zoom"], 6, 3.5, 8, 5.5],
+              "line-opacity": localStatus === "customs" ? 0.08 : 0.78,
+            },
+          });
+
+          realMap.addLayer({
+            id: "real-route-progress",
+            type: "line",
+            source: "real-route",
+            layout: { "line-cap": "round", "line-join": "round" },
+            paint: {
+              "line-gradient": realRouteGradient(localStatus === "distribution" ? 1 : 0.06),
+              "line-width": ["interpolate", ["linear"], ["zoom"], 6, 4, 8, 6],
+              "line-blur": 0.4,
+              "line-opacity": localStatus === "customs" ? 0 : 1,
+            },
+          });
+          window.__realTrackingRouteLoaded = true;
+
+          if (localStatus === "customs") {
+            await addRealMapLandmarks(realMap, maplibregl);
+            scheduleHomeView();
+            return;
+          }
+          if (localStatus === "distribution") {
+            realMap.setPaintProperty("real-route-progress", "line-gradient", [
+              "interpolate",
+              ["linear"],
+              ["line-progress"],
+              0,
+              "rgba(88, 178, 255, 0.46)",
+              0.84,
+              "rgba(111, 205, 255, 0.62)",
+              1,
+              "rgba(255, 255, 255, 0.90)",
+            ]);
+            await addRealMapLandmarks(realMap, maplibregl);
+            scheduleHomeView();
+            return;
+          }
+
+          const prefersReducedMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+          if (prefersReducedMotion) {
+            realMap.setPaintProperty("real-route-progress", "line-gradient", realRouteGradient(0.90));
+            await addRealMapLandmarks(realMap, maplibregl);
+            scheduleHomeView();
+            return;
+          }
+
+          let animationStart = performance.now();
+          const routeAnimationDuration = 7600;
+          const animateRoute = (now) => {
+            if (!isRealMapView || !realMap.getLayer("real-route-progress")) return;
+            const cycle = ((now - animationStart) % routeAnimationDuration) / routeAnimationDuration;
+            const eased = cycle < 0.82
+              ? 1 - Math.pow(1 - cycle / 0.82, 3)
+              : 1;
+            realMap.setPaintProperty("real-route-progress", "line-gradient", realRouteGradient(eased));
+            requestAnimationFrame(animateRoute);
+          };
+          requestAnimationFrame(animateRoute);
+          await addRealMapLandmarks(realMap, maplibregl);
+          scheduleHomeView();
+        };
+
+        if (realMap.loaded() || realMap.isStyleLoaded()) {
+          addRealRouteLayers();
+        } else {
+          realMap.once("load", addRealRouteLayers);
+        }
+      }
+      initRealMap();
 
       function enhanceDetailsMotion(details) {
         const summary = details.querySelector("summary");
@@ -2597,6 +3927,7 @@
       }
 
       map.addEventListener("pointerdown", (e) => {
+        if (isNationalView || e.target.closest(".mode-switcher")) return;
         pointerActive = true;
         returningHome = false;
         autoResumeAt = performance.now() + 4200;

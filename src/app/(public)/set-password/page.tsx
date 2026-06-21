@@ -5,8 +5,9 @@ export const metadata = { title: "Definir contraseña — Camisetas" };
 export default function SetPasswordPage() {
   return (
     <div>
-      <h2 className="mb-1 text-lg font-semibold text-slate-900">Definí tu contraseña</h2>
-      <p className="mb-5 text-sm text-slate-500">
+      <p className="portal-eyebrow mb-3 text-center">Primer acceso</p>
+      <h1 className="public-title">Definí tu contraseña</h1>
+      <p className="public-copy">
         Elegí una contraseña para acceder a tu cuenta y seguir tus pedidos.
       </p>
       <SetPasswordForm />

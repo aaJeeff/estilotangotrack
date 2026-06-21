@@ -39,6 +39,7 @@ export async function listOrdersForClient(clientId: string) {
       createdAt: true,
       estimatedDeliveryFrom: true,
       estimatedDeliveryTo: true,
+      actualDeliveryDate: true,
       _count: { select: { items: true } },
     },
   });

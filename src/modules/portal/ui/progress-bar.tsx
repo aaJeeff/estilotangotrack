@@ -1,13 +1,32 @@
-export function ProgressBar({ progress }: { progress: number }) {
+import { cn } from "@/shared/lib/utils";
+
+export function ProgressBar({
+  progress,
+  showLabel = true,
+  className,
+}: {
+  progress: number;
+  showLabel?: boolean;
+  className?: string;
+}) {
   return (
-    <div className="space-y-1.5">
-      <div className="flex justify-between text-xs font-medium text-slate-500">
-        <span>Progreso del pedido</span>
-        <span>{progress}%</span>
-      </div>
-      <div className="h-3 w-full overflow-hidden rounded-full bg-slate-200">
+    <div className={cn("portal-progress", className)}>
+      {showLabel && (
+        <div className="portal-progress-label">
+          <span>Progreso del pedido</span>
+          <span>{progress}%</span>
+        </div>
+      )}
+      <div
+        className="portal-progress-track"
+        role="progressbar"
+        aria-label="Progreso del pedido"
+        aria-valuemin={0}
+        aria-valuemax={100}
+        aria-valuenow={progress}
+      >
         <div
-          className="h-full rounded-full bg-gradient-to-r from-sky-500 to-indigo-500 transition-[width] duration-700 ease-out"
+          className="portal-progress-fill"
           style={{ width: `${progress}%` }}
         />
       </div>

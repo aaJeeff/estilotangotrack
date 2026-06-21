@@ -40,7 +40,13 @@ export const Textarea = forwardRef<
 ));
 Textarea.displayName = "Textarea";
 
-export function FieldError({ children }: { children?: React.ReactNode }) {
+export function FieldError({
+  children,
+  className,
+}: {
+  children?: React.ReactNode;
+  className?: string;
+}) {
   if (!children) return null;
-  return <p className="mt-1 text-sm text-red-600">{children}</p>;
+  return <p className={cn("mt-1 text-sm text-red-600", className)}>{children}</p>;
 }

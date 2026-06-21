@@ -9,7 +9,7 @@ import { Input, Label, FieldError } from "@/shared/ui/field";
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" size="lg" className="w-full" disabled={pending}>
+    <Button type="submit" size="lg" className="public-submit" disabled={pending}>
       {pending ? "Guardando…" : "Guardar contraseña"}
     </Button>
   );
@@ -19,10 +19,11 @@ export function SetPasswordForm() {
   const [state, formAction] = useActionState<ActionState, FormData>(setPasswordAction, {});
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="public-form">
       <div>
-        <Label htmlFor="password">Nueva contraseña</Label>
+        <Label htmlFor="password" className="public-field-label">Nueva contraseña</Label>
         <Input
+          className="public-input"
           id="password"
           name="password"
           type="password"
@@ -32,8 +33,9 @@ export function SetPasswordForm() {
         />
       </div>
       <div>
-        <Label htmlFor="confirm">Repetir contraseña</Label>
+        <Label htmlFor="confirm" className="public-field-label">Repetir contraseña</Label>
         <Input
+          className="public-input"
           id="confirm"
           name="confirm"
           type="password"
@@ -43,7 +45,7 @@ export function SetPasswordForm() {
         />
       </div>
 
-      <FieldError>{state.error}</FieldError>
+      <FieldError className="public-error">{state.error}</FieldError>
 
       <SubmitButton />
     </form>

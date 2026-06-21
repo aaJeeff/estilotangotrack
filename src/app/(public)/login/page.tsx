@@ -5,8 +5,9 @@ export const metadata = { title: "Ingresar — Camisetas" };
 export default function LoginPage() {
   return (
     <div>
-      <h2 className="mb-1 text-lg font-semibold text-slate-900">Iniciá sesión</h2>
-      <p className="mb-5 text-sm text-slate-500">Accedé para ver el estado de tus pedidos.</p>
+      <p className="portal-eyebrow mb-3 text-center">Área de clientes</p>
+      <h1 className="public-title">Seguí tu pedido</h1>
+      <p className="public-copy">Ingresá con el email que usaste en tu compra.</p>
       <LoginForm />
     </div>
   );

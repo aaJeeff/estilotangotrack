@@ -10,7 +10,7 @@ import { Input, Label, FieldError } from "@/shared/ui/field";
 function SubmitButton() {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" size="lg" className="w-full" disabled={pending}>
+    <Button type="submit" size="lg" className="public-submit" disabled={pending}>
       {pending ? "Ingresando…" : "Ingresar"}
     </Button>
   );
@@ -20,14 +20,15 @@ export function LoginForm() {
   const [state, formAction] = useActionState<ActionState, FormData>(signInAction, {});
 
   return (
-    <form action={formAction} className="space-y-4">
+    <form action={formAction} className="public-form">
       <div>
-        <Label htmlFor="email">Email</Label>
-        <Input id="email" name="email" type="email" autoComplete="email" required />
+        <Label htmlFor="email" className="public-field-label">Email</Label>
+        <Input className="public-input" id="email" name="email" type="email" autoComplete="email" required />
       </div>
       <div>
-        <Label htmlFor="password">Contraseña</Label>
+        <Label htmlFor="password" className="public-field-label">Contraseña</Label>
         <Input
+          className="public-input"
           id="password"
           name="password"
           type="password"
@@ -36,12 +37,12 @@ export function LoginForm() {
         />
       </div>
 
-      <FieldError>{state.error}</FieldError>
+      <FieldError className="public-error">{state.error}</FieldError>
 
       <SubmitButton />
 
-      <p className="text-center text-sm text-slate-500">
-        <Link href="/reset-password" className="text-slate-700 underline">
+      <p className="public-link-row">
+        <Link href="/reset-password" className="public-link underline">
           Olvidé mi contraseña
         </Link>
       </p>
