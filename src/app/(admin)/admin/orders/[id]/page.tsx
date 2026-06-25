@@ -6,6 +6,7 @@ import { AssignTrackingForm } from "@/modules/orders/ui/assign-tracking-form";
 import { SyncNowButton } from "@/modules/orders/ui/sync-now-button";
 import { AddPaymentForm } from "@/modules/orders/ui/add-payment-form";
 import { OrderDetailsForm } from "@/modules/orders/ui/order-details-form";
+import { RetryNotificationButton } from "@/modules/notifications/ui/retry-notification-button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/shared/ui/card";
 import { Badge } from "@/shared/ui/badge";
 import { Button } from "@/shared/ui/button";
@@ -171,7 +172,7 @@ export default async function OrderDetailPage({
             </CardHeader>
             <CardContent className="space-y-3">
               {order.shipment ? (
-                <div className="rounded-lg bg-slate-50 p-3 text-sm">
+                <div className="space-y-2 rounded-lg bg-slate-50 p-3 text-sm">
                   <p className="font-mono text-slate-800">{order.shipment.trackingNumber}</p>
                   <p className="mt-1 text-xs text-slate-500">
                     {order.shipment.registeredWithProvider
@@ -180,6 +181,17 @@ export default async function OrderDetailPage({
                     {order.shipment.lastSyncedAt &&
                       ` · Últ. sync ${formatDateTime(order.shipment.lastSyncedAt)}`}
                   </p>
+                  <div className="grid grid-cols-2 gap-2 border-t border-slate-200 pt-2 text-xs text-slate-500">
+                    <Row label="Zona" value={order.shipment.syncZone} />
+                    <Row
+                      label="Próximo sync"
+                      value={
+                        order.shipment.nextSyncAt
+                          ? formatDateTime(order.shipment.nextSyncAt)
+                          : "Sin programar"
+                      }
+                    />
+                  </div>
                 </div>
               ) : (
                 <p className="text-sm text-slate-500">Sin código de seguimiento asignado.</p>
@@ -192,6 +204,79 @@ export default async function OrderDetailPage({
                   currentCarrier={order.shipment?.carrier}
                 />
               </div>
+              {order.shipment && (
+                <div className="border-t border-slate-100 pt-3">
+                  <h3 className="text-sm font-medium text-slate-800">Eventos recientes</h3>
+                  {order.shipment.events.length === 0 ? (
+                    <p className="mt-2 text-sm text-slate-500">
+                      Todavía no hay eventos crudos guardados del proveedor.
+                    </p>
+                  ) : (
+                    <ul className="mt-2 space-y-2">
+                      {order.shipment.events.slice(0, 5).map((event) => (
+                        <li key={event.id} className="rounded-lg border border-slate-200 p-2 text-xs">
+                          <p className="font-medium text-slate-800">{event.rawDescription}</p>
+                          <p className="mt-1 text-slate-500">
+                            {formatDateTime(event.occurredAt)}
+                            {event.location && ` · ${event.location}`}
+                            {event.countryCode && ` · ${event.countryCode}`}
+                          </p>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+
+          {/* Notifications */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Emails y notificaciones</CardTitle>
+            </CardHeader>
+            <CardContent>
+              {order.notifications.length === 0 ? (
+                <p className="text-sm text-slate-500">
+                  Este pedido todavía no tiene emails de estado registrados.
+                </p>
+              ) : (
+                <ul className="space-y-3">
+                  {order.notifications.map((notification) => (
+                    <li
+                      key={notification.id}
+                      className="rounded-lg border border-slate-200 p-3 text-sm"
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div>
+                          <p className="font-medium text-slate-900">
+                            {notification.triggerStatus
+                              ? orderStatusLabel(notification.triggerStatus)
+                              : notification.templateKey}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {notification.templateKey} · Creado{" "}
+                            {formatDateTime(notification.createdAt)}
+                            {notification.sentAt &&
+                              ` · Enviado ${formatDateTime(notification.sentAt)}`}
+                          </p>
+                        </div>
+                        <Badge tone={notificationTone(notification.status)}>
+                          {notification.status}
+                        </Badge>
+                      </div>
+                      {notification.error && (
+                        <p className="mt-2 rounded-md bg-red-50 px-2 py-1 text-xs text-red-700">
+                          {notification.error}
+                        </p>
+                      )}
+                      {notification.status === "FAILED" && notification.channel === "EMAIL" && (
+                        <RetryNotificationButton notificationId={notification.id} />
+                      )}
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
 
@@ -256,4 +341,10 @@ function Row({ label, value }: { label: string; value: string }) {
       <span className="font-medium text-slate-800">{value}</span>
     </div>
   );
+}
+
+function notificationTone(status: "PENDING" | "SENT" | "FAILED") {
+  if (status === "SENT") return "green";
+  if (status === "FAILED") return "red";
+  return "amber";
 }

@@ -25,6 +25,19 @@ En [api.17track.net](https://api.17track.net) obtené tu API key y cargala en
 - **Cron (respaldo):** `/api/cron/tracking-sync` procesa los envíos cuyo `nextSyncAt` venció.
 - **Manual:** botón "Actualizar ahora" en el detalle del pedido.
 
+## Diagnóstico en admin
+
+En `/admin/orders/[id]`, la tarjeta **Seguimiento** muestra:
+
+- si el envío quedó registrado en 17Track;
+- zona de sincronización;
+- último y próximo sync;
+- eventos crudos recientes guardados desde el proveedor.
+
+Si `registeredWithProvider` está en falso o no hay eventos recientes, revisá primero
+`SEVENTEENTRACK_API_KEY`, el número de tracking y luego usá **Actualizar ahora**. El cron solo
+procesa envíos con `nextSyncAt` vencido; pedidos terminales o sin próximo sync no se consultan.
+
 ## Frecuencia (control de costos)
 
 Configurable en `AppConfig` (`sync_frequencies_hours`), por zona:

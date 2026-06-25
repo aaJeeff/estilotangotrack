@@ -9,6 +9,8 @@
 | Cambiar textos de ayuda / etiquetas / progreso | `shared/config/order-status.ts` |
 | Agregar un admin | Crear en Supabase Auth con `app_metadata.role=ADMIN` + fila en `User`, o ampliar el seed |
 | Revisar emails fallidos | Tabla `Notification` con `status=FAILED` |
+| Reintentar email fallido | `/admin/orders/[id]` → **Emails y notificaciones** → **Reintentar email** |
+| Revisar eventos crudos | `/admin/orders/[id]` → **Seguimiento** → **Eventos recientes** |
 | Auditar cambios | Tabla `AuditLog` |
 
 ## Diagnóstico
