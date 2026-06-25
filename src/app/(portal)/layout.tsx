@@ -10,17 +10,17 @@ export default async function PortalLayout({ children }: { children: React.React
 
   return (
     <div className="customer-shell">
-      <header className="customer-header">
+      <header className="customer-header liquid-glass liquid-glass--subtle">
         <div className="customer-header-inner">
           <Link href="/portal/orders" className="customer-brand">
             Camisetas <span className="customer-brand-mark">track</span>
           </Link>
           <div className="customer-header-actions">
-            <Link href="/portal/orders" className="customer-orders-link">
+            <Link href="/portal/orders" className="customer-orders-link liquid-glass liquid-glass--control">
               Mis pedidos
             </Link>
             <form action={signOutAction}>
-              <button type="submit" className="customer-logout">
+              <button type="submit" className="customer-logout liquid-glass liquid-glass--control">
                 Salir
               </button>
             </form>

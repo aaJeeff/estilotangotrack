@@ -8,7 +8,7 @@ export default function PublicLayout({ children }: { children: React.ReactNode }
           </div>
           <p>Seguimiento de pedidos</p>
         </div>
-        <section className="public-card liquid-panel">
+        <section className="public-card liquid-glass liquid-glass--hero">
           <div className="public-content">{children}</div>
         </section>
         <p className="public-footnote">Tu pedido, siempre a la vista.</p>

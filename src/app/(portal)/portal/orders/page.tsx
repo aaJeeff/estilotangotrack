@@ -35,7 +35,7 @@ export default async function PortalOrdersPage() {
         )}
       </header>
 
-      <section className="orders-wallet liquid-panel">
+      <section className="orders-wallet liquid-glass liquid-glass--hero">
         {orders.length === 0 ? (
           <div className="orders-empty">
             <p className="portal-eyebrow">Sin pedidos todavía</p>
@@ -82,7 +82,7 @@ function ActiveOrderTicket({ order }: { order: PortalOrder }) {
 
   return (
     <Link href={`/portal/orders/${order.id}`} className="order-ticket-link">
-      <article className="order-ticket">
+      <article className="order-ticket liquid-glass liquid-glass--card liquid-glass--interactive">
         <div className="order-ticket-main">
           <div className="order-ticket-top">
             <span>Pedido {formatOrderNumber(order.orderNumber)}</span>
@@ -136,7 +136,7 @@ function PreviousOrderTicket({ order }: { order: PortalOrder }) {
 
   return (
     <Link href={`/portal/orders/${order.id}`} className="order-ticket-link">
-      <article className="order-ticket-previous">
+      <article className="order-ticket-previous liquid-glass liquid-glass--subtle liquid-glass--interactive">
         <div className="order-previous-head">
           <strong>Pedido {formatOrderNumber(order.orderNumber)}</strong>
           <OrderStatusBadge status={order.currentStatus} appearance="portal" />
